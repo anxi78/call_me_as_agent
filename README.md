@@ -2,7 +2,7 @@
 
 像用agent一样调用我❤
 
-一个可以让自己变成一个公用AI Agent给别人干活的项目, 想法借鉴自 https://b23.tv/BLyqezX
+一个可以让自己变成一个公用AI Agent给别人干活的项目, 想法借鉴自 https://www.bilibili.com/video/BV11PLg6LEbB
 
 一个“人工介入”（Human-in-the-loop）的 LLM 服务端。它允许你拦截、监控并手动回复 LLM API 请求。它支持 **OpenAI** 和 **Claude (Anthropic)** 格式，旨在成为 OpenCode 等工具中真实 LLM API 的替代方案。
 
