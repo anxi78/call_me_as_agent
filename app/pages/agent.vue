@@ -7,6 +7,7 @@ interface PendingRequest {
 }
 
 const { data: requests, refresh } = useFetch<PendingRequest[]>('/api/internal/requests')
+const { data: settings } = useFetch<any>('/api/settings')
 const activeRequestId = ref<string | null>(null)
 const isAuthenticated = ref(true)
 const loginPassword = ref('')
