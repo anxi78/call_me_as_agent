@@ -36,6 +36,13 @@ export default defineEventHandler(async (event) => {
   const result = await addRequest('openai-responses', body)
   if (keepAliveTimer) clearInterval(keepAliveTimer)
 
+  // Estimate tokens
+  const estimateTokens = (obj: any) => Math.ceil(JSON.stringify(obj).length / 3)
+  const promptTokens = estimateTokens(body.input || body.instructions)
+  const completionContent = (result.content || '') + (result.toolCalls ? JSON.stringify(result.toolCalls) : '')
+  const completionTokens = Math.ceil(completionContent.length / 3)
+  const totalTokens = promptTokens + completionTokens
+
   if (body.stream) {
     if (!getHeader(event, 'content-type')) {
       setResponseHeaders(event, {
@@ -49,23 +56,38 @@ export default defineEventHandler(async (event) => {
     event.node.res.flushHeaders()
 
     const sendEvent = (eventName: string, data: any) => {
-      event.node.res.write(`event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`)
+      event.node.res.write(`event: ${eventName}\ndata: ${JSON.stringify({ type: eventName, ...data })}\n\n`)
     }
 
     // 1. Send response.created
     sendEvent('response.created', {
-      id: `resp_${requestId}`,
-      object: 'response',
-      created: now,
-      model: body.model || 'gpt-4o',
-      status: 'in_progress'
+      response: {
+        id: `resp_${requestId}`,
+        object: 'response',
+        created: now,
+        model: body.model || 'gpt-4o',
+        status: 'in_progress'
+      }
     })
 
-    // 2. Send content (simulation)
+    const itemId = `item_${Math.random().toString(36).substring(2, 9)}`
+
+    // 2. Add output item
+    sendEvent('response.output_item.added', {
+      response_id: `resp_${requestId}`,
+      output_index: 0,
+      item: {
+        id: itemId,
+        type: 'message',
+        role: 'assistant',
+        content: []
+      }
+    })
+
+    // 3. Send content (simulation)
     if (result.content) {
       const content = result.content
       const speed = result.simulateStream ? (settings.streamSpeed || 30) : 0
-      const itemId = `item_${Math.random().toString(36).substring(2, 9)}`
 
       if (speed === 0) {
         sendEvent('response.output_text.delta', {
@@ -87,34 +109,61 @@ export default defineEventHandler(async (event) => {
           await new Promise(resolve => setTimeout(resolve, speed))
         }
       }
+      
+      sendEvent('response.output_text.done', {
+        response_id: `resp_${requestId}`,
+        item_id: itemId,
+        output_index: 0,
+        content_index: 0,
+        text: content
+      })
     }
 
-    // 3. Tool calls (Simplified for Responses API)
+    // 4. Tool calls (if any)
     if (result.toolCalls && result.toolCalls.length > 0) {
        result.toolCalls.forEach((tc, idx) => {
+          const tcItemId = tc.id || `item_tc_${idx}`
+          sendEvent('response.output_item.added', {
+            response_id: `resp_${requestId}`,
+            output_index: result.content ? idx + 1 : idx,
+            item: {
+              id: tcItemId,
+              type: 'function_call',
+              name: tc.function?.name || (tc as any).name,
+              arguments: ''
+            }
+          })
           sendEvent('response.function_call_arguments.delta', {
             response_id: `resp_${requestId}`,
-            item_id: tc.id || `item_tc_${idx}`,
+            item_id: tcItemId,
             output_index: result.content ? idx + 1 : idx,
             delta: typeof tc.function?.arguments === 'string' ? tc.function.arguments : JSON.stringify(tc.function?.arguments || (tc as any).input || {})
+          })
+          sendEvent('response.function_call_arguments.done', {
+            response_id: `resp_${requestId}`,
+            item_id: tcItemId,
+            output_index: result.content ? idx + 1 : idx,
+            arguments: typeof tc.function?.arguments === 'string' ? tc.function.arguments : JSON.stringify(tc.function?.arguments || (tc as any).input || {})
           })
        })
     }
 
-    // 4. Send response.done
+    // 5. Send response.done
     sendEvent('response.done', {
-      id: `resp_${requestId}`,
-      object: 'response',
-      status: 'completed',
-      output: [
-        {
-          id: `item_${requestId}`,
-          type: 'message',
-          role: 'assistant',
-          content: result.content
-        }
-      ],
-      usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 }
+      response: {
+        id: `resp_${requestId}`,
+        object: 'response',
+        status: 'completed',
+        output: [
+          {
+            id: itemId,
+            type: 'message',
+            role: 'assistant',
+            content: [{ type: 'text', text: result.content }]
+          }
+        ],
+        usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens }
+      }
     })
 
     event.node.res.end()
@@ -149,7 +198,7 @@ export default defineEventHandler(async (event) => {
       model: body.model || 'gpt-4o',
       status: 'completed',
       output,
-      usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 }
+      usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens }
     }
   }
 })

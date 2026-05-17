@@ -35,6 +35,16 @@ export default defineEventHandler(async (event) => {
   const result = await addRequest('openai', body)
   if (keepAliveTimer) clearInterval(keepAliveTimer)
 
+  // Estimate tokens (rough heuristic)
+  const estimateTokens = (obj: any) => Math.ceil(JSON.stringify(obj).length / 3)
+  const promptTokens = estimateTokens(body.messages)
+  const completionContent = (result.content || '') + (result.toolCalls ? JSON.stringify(result.toolCalls) : '')
+  const completionTokens = Math.ceil(completionContent.length / 3)
+  const totalTokens = promptTokens + completionTokens
+
+  const now = Math.floor(Date.now() / 1000)
+  const requestId = Math.random().toString(36).substring(2, 15)
+
   if (body.stream) {
     if (!getHeader(event, 'content-type')) {
       setResponseHeaders(event, {
@@ -110,14 +120,24 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // 4. Send final stop chunk
-    sendChunk({
+    // 4. Send final stop chunk with usage if requested
+    const lastChunk: any = {
       id: `chatcmpl-${requestId}`,
       object: 'chat.completion.chunk',
       created: now,
       model: body.model || 'gpt-4o',
       choices: [{ index: 0, delta: {}, finish_reason: (result.toolCalls && result.toolCalls.length > 0) ? 'tool_calls' : 'stop' }]
-    })
+    }
+    
+    if (body.stream_options?.include_usage) {
+        lastChunk.usage = {
+            prompt_tokens: promptTokens,
+            completion_tokens: completionTokens,
+            total_tokens: totalTokens
+        }
+    }
+
+    sendChunk(lastChunk)
 
     event.node.res.write('data: [DONE]\n\n')
     event.node.res.end()
@@ -140,9 +160,9 @@ export default defineEventHandler(async (event) => {
         }
       ],
       usage: {
-        prompt_tokens: 10,
-        completion_tokens: 10,
-        total_tokens: 20
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: totalTokens
       }
     }
 

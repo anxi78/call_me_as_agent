@@ -33,6 +33,12 @@ export default defineEventHandler(async (event) => {
   const result = await addRequest('claude', body)
   if (keepAliveTimer) clearInterval(keepAliveTimer)
 
+  // Estimate tokens
+  const estimateTokens = (obj: any) => Math.ceil(JSON.stringify(obj).length / 3)
+  const promptTokens = estimateTokens(body.messages || body.input)
+  const completionContent = (result.content || '') + (result.toolCalls ? JSON.stringify(result.toolCalls) : '')
+  const completionTokens = Math.ceil(completionContent.length / 3)
+
   const requestId = Math.random().toString(36).substring(2, 15)
 
   if (body.stream) {
@@ -60,7 +66,7 @@ export default defineEventHandler(async (event) => {
         role: 'assistant',
         content: [],
         model: body.model || 'claude-3-5-sonnet-20241022',
-        usage: { input_tokens: 10, output_tokens: 0 }
+        usage: { input_tokens: promptTokens, output_tokens: 0 }
       }
     })
 
@@ -124,7 +130,7 @@ export default defineEventHandler(async (event) => {
     sendSSE('message_delta', {
       type: 'message_delta',
       delta: { stop_reason: (result.toolCalls && result.toolCalls.length > 0) ? 'tool_use' : 'end_turn', stop_sequence: null },
-      usage: { output_tokens: 10 }
+      usage: { output_tokens: completionTokens }
     })
     sendSSE('message_stop', { type: 'message_stop' })
 
@@ -155,7 +161,7 @@ export default defineEventHandler(async (event) => {
       model: body.model || 'claude-3-5-sonnet-20241022',
       stop_reason: (result.toolCalls && result.toolCalls.length > 0) ? 'tool_use' : 'end_turn',
       stop_sequence: null,
-      usage: { input_tokens: 10, output_tokens: 10 }
+      usage: { input_tokens: promptTokens, output_tokens: completionTokens }
     }
   }
 })
