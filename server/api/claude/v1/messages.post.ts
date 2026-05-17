@@ -102,21 +102,27 @@ export default defineEventHandler(async (event) => {
             const tcId = tc.id || `call_${Math.random().toString(36).substring(2, 9)}`
             const toolName = tc.function?.name || (tc as any).name
             const toolInput = typeof tc.function?.arguments === 'string' ? JSON.parse(tc.function.arguments) : ((tc as any).input || {})
-            const partialJson = JSON.stringify(toolInput)
+            const fullJson = JSON.stringify(toolInput)
             
-            completionTokens += Math.ceil(partialJson.length / 3)
+            completionTokens += Math.ceil(fullJson.length / 3)
 
+            // 1. content_block_start
             sendSSE('content_block_start', {
               type: 'content_block_start',
               index: contentBlockIndex,
               content_block: { type: 'tool_use', id: tcId, name: toolName, input: {} }
             })
+
+            // 2. content_block_delta (input_json_delta)
             sendSSE('content_block_delta', {
               type: 'content_block_delta',
               index: contentBlockIndex,
-              delta: { type: 'input_json_delta', partial_json: partialJson }
+              delta: { type: 'input_json_delta', partial_json: fullJson }
             })
+
+            // 3. content_block_stop
             sendSSE('content_block_stop', { type: 'content_block_stop', index: contentBlockIndex })
+            
             contentBlockIndex++
           })
         }

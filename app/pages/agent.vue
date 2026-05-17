@@ -190,7 +190,12 @@ const sendPart = async (id: string) => {
   submitting.value[id] = true
   try {
     const toolCalls = parseToolCalls(id)
-    const content = responses.value[id] || ''
+    let content = responses.value[id] || ''
+    
+    // Auto-append newline for multi-turn feel
+    if (content && !content.endsWith('\n')) {
+      content += '\n'
+    }
     
     await $fetch('/api/internal/respond', {
       method: 'POST',
