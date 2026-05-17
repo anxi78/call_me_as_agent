@@ -534,7 +534,7 @@ const availableTools = computed(() => {
                     </UButton>
                 </div>
 
-                <div v-if="structuredToolCalls[activeRequest.id]?.length" class="flex flex-col gap-4 max-h-[400px] lg:max-h-[500px] overflow-y-auto p-1 mb-2">
+                <div v-if="structuredToolCalls[activeRequest.id]?.length" class="flex flex-col gap-4 max-h-[30vh] sm:max-h-[400px] lg:max-h-[500px] overflow-y-auto p-1 mb-2">
                     <UCard v-for="(tc, idx) in structuredToolCalls[activeRequest.id]" :key="tc.id" size="sm" class="w-full flex-shrink-0 relative group border-primary-200 dark:border-primary-900 shadow-sm bg-primary-50/30 dark:bg-primary-950/20 transition-all">
                       <template #header>
                         <div class="flex justify-between items-center py-1">
