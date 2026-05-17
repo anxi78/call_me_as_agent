@@ -89,7 +89,7 @@
 - 设置会持久化保存在 `.data/settings.json` 中。
 
 ## 🏗️ 技术栈
-- [Nuxt 3](https://nuxt.com/)
+- [Nuxt 4](https://nuxt.com/)
 - [Nuxt UI v4](https://ui.nuxt.com/)
 - Tailwind CSS
 - TypeScript
