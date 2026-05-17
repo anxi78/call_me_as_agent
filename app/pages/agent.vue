@@ -97,7 +97,7 @@ watch([activeRequestId, requests, sentHistory], () => {
 }, { deep: true })
 
 onUnmounted(() => {
-  if (pollInterval) clearInterval(pollInterval)
+  if (pollInterval.value) clearInterval(pollInterval.value)
 })
 
 const copyToClipboard = (text: string) => {
