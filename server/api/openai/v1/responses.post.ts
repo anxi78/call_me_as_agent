@@ -56,7 +56,7 @@ export default defineEventHandler(async (event) => {
       usage
     })
 
-    // 1. Initial events
+    // 1. Initial events (IMMEDIATE)
     emit('response.created', { response: buildBaseResponse('in_progress') })
     emit('response.in_progress', { response: buildBaseResponse('in_progress') })
 
@@ -68,10 +68,7 @@ export default defineEventHandler(async (event) => {
     }, (settings.keepAliveInterval || 15) * 1000)
 
     let outputIndex = 0
-    const assistantItemId = `item_${Math.random().toString(36).substring(2, 9)}`
-    let assistantItemAdded = false
-    let totalContent = ''
-    const finalOutputItems: any[] = []
+    const allOutputItems: any[] = []
 
     return new Promise<void>((resolve) => {
       request.onData = async (chunk) => {
@@ -79,50 +76,76 @@ export default defineEventHandler(async (event) => {
 
         // Handle Content
         if (chunk.content) {
-          totalContent += chunk.content
-          completionTokens += Math.ceil(chunk.content.length / 3)
+          const content = chunk.content
+          completionTokens += Math.ceil(content.length / 3)
+          const itemId = `item_${Math.random().toString(36).substring(2, 9)}`
           
-          if (!assistantItemAdded) {
-            emit('response.output_item.added', {
-                output_index: outputIndex,
-                item: {
-                    id: assistantItemId,
-                    type: 'message',
-                    status: 'in_progress',
-                    role: 'assistant',
-                    content: []
-                }
-            })
-            emit('response.content_part.added', {
-                item_id: assistantItemId,
-                output_index: outputIndex,
-                content_index: 0,
-                part: { type: 'output_text', text: '' }
-            })
-            assistantItemAdded = true
-          }
+          emit('response.output_item.added', {
+              response_id: `resp_${requestId}`,
+              output_index: outputIndex,
+              item: { id: itemId, type: 'message', status: 'in_progress', role: 'assistant', content: [] }
+          })
+          emit('response.content_part.added', {
+              response_id: `resp_${requestId}`,
+              item_id: itemId,
+              output_index: outputIndex,
+              content_index: 0,
+              part: { type: 'output_text', text: '' }
+          })
 
           if (speed === 0) {
             emit('response.output_text.delta', {
-              item_id: assistantItemId,
+              response_id: `resp_${requestId}`,
+              item_id: itemId,
               output_index: outputIndex,
               content_index: 0,
-              delta: chunk.content
+              delta: content
             })
           } else {
-            for (let i = 0; i < chunk.content.length; i++) {
+            for (let i = 0; i < content.length; i++) {
               emit('response.output_text.delta', {
-                item_id: assistantItemId,
+                response_id: `resp_${requestId}`,
+                item_id: itemId,
                 output_index: outputIndex,
                 content_index: 0,
-                delta: chunk.content[i]
+                delta: content[i]
               })
               await new Promise(r => setTimeout(r, speed))
             }
           }
+
+          const completedItem = {
+              id: itemId,
+              type: 'message',
+              status: 'completed',
+              role: 'assistant',
+              content: [{ type: 'output_text', text: content }]
+          }
+          allOutputItems.push(completedItem)
+
+          emit('response.output_text.done', {
+              response_id: `resp_${requestId}`,
+              item_id: itemId,
+              output_index: outputIndex,
+              content_index: 0,
+              text: content
+          })
+          emit('response.content_part.done', {
+              response_id: `resp_${requestId}`,
+              item_id: itemId,
+              output_index: outputIndex,
+              content_index: 0,
+              part: completedItem.content[0]
+          })
+          emit('response.output_item.done', {
+              response_id: `resp_${requestId}`,
+              output_index: outputIndex,
+              item: completedItem
+          })
+          outputIndex++
         }
 
-        // Handle Tool Calls
+        // Handle Tool Calls (Adopting Granular Reference Format)
         if (chunk.toolCalls && chunk.toolCalls.length > 0) {
           chunk.toolCalls.forEach((tc) => {
             const tcItemId = `item_${Math.random().toString(36).substring(2, 9)}`
@@ -140,13 +163,31 @@ export default defineEventHandler(async (event) => {
               name: toolName, 
               arguments: formattedArgs 
             }
-            finalOutputItems.push(toolItem)
+            allOutputItems.push(toolItem)
 
+            // 1. Added
             emit('response.output_item.added', {
+              response_id: `resp_${requestId}`,
               output_index: outputIndex,
-              item: toolItem
+              item: { id: tcItemId, type: 'function_call', status: 'in_progress', name: toolName, arguments: '' }
             })
+            // 2. Delta
+            emit('response.function_call_arguments.delta', {
+              response_id: `resp_${requestId}`,
+              item_id: tcItemId,
+              output_index: outputIndex,
+              delta: formattedArgs
+            })
+            // 3. Done
+            emit('response.function_call_arguments.done', {
+              response_id: `resp_${requestId}`,
+              item_id: tcItemId,
+              output_index: outputIndex,
+              arguments: formattedArgs
+            })
+            // 4. Item Done
             emit('response.output_item.done', {
+              response_id: `resp_${requestId}`,
               output_index: outputIndex,
               item: toolItem
             })
@@ -156,48 +197,27 @@ export default defineEventHandler(async (event) => {
 
         if (chunk.isFinal) {
           clearInterval(keepAliveTimer)
-          
-          if (assistantItemAdded) {
-            const assistantItem = {
-                id: assistantItemId,
-                type: 'message',
-                status: 'completed',
-                role: 'assistant',
-                content: [{ type: 'output_text', text: totalContent }]
-            }
-            finalOutputItems.unshift(assistantItem)
-
-            emit('response.output_text.done', {
-                item_id: assistantItemId,
-                output_index: 0,
-                content_index: 0,
-                text: totalContent
-            })
-            emit('response.content_part.done', {
-                item_id: assistantItemId,
-                output_index: 0,
-                content_index: 0,
-                part: { type: 'output_text', text: totalContent }
-            })
-            emit('response.output_item.done', {
-                output_index: 0,
-                item: assistantItem
-            })
+          const usage = { 
+            prompt_tokens: promptTokens, 
+            completion_tokens: completionTokens, 
+            total_tokens: promptTokens + completionTokens,
+            input_tokens: promptTokens,
+            output_tokens: completionTokens
           }
-
-          const usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens }
+          const finalResponse = buildBaseResponse('completed', allOutputItems, usage)
 
           // Terminal events
-          emit('response.completion', {
-            response_id: `resp_${requestId}`,
-            status: 'completed'
+          emit('response.completed', {
+            response: finalResponse
           })
 
           emit('response.done', {
-            response: buildBaseResponse('completed', finalOutputItems, usage)
+            response: finalResponse
           })
 
-          event.node.res.write('data: [DONE]\n\n')
+          // Give a small tick for the buffer to flush
+          await new Promise(r => setTimeout(r, 150))
+          
           event.node.res.end()
           resolve()
         }
@@ -210,30 +230,22 @@ export default defineEventHandler(async (event) => {
       })
     })
   } else {
-    // Non-streaming: Wait for final
+    // Non-streaming
     return new Promise((resolve) => {
-      let bufferedContent = ''
-      const bufferedItems: any[] = []
-
+      const finalOutput: any[] = []
       request.onData = (chunk) => {
         if (chunk.content) {
-           bufferedContent += chunk.content
-           completionTokens += Math.ceil(chunk.content.length / 3)
+          completionTokens += Math.ceil(chunk.content.length / 3)
+          finalOutput.push({ id: `item_${Math.random().toString(36).substring(2, 7)}`, type: 'message', role: 'assistant', content: [{ type: 'text', text: chunk.content }] })
         }
         if (chunk.toolCalls) {
           chunk.toolCalls.forEach(tc => {
             const formattedArgs = typeof tc.function?.arguments === 'string' ? tc.function.arguments : JSON.stringify(tc.function?.arguments || (tc as any).input || {})
             completionTokens += Math.ceil(formattedArgs.length / 3)
-            bufferedItems.push({ id: tc.id || `item_tc_${Math.random().toString(36).substring(2, 7)}`, type: 'function_call', status: 'completed', name: tc.function?.name || (tc as any).name, arguments: formattedArgs })
+            finalOutput.push({ id: tc.id || `item_tc_${Math.random().toString(36).substring(2, 7)}`, type: 'function_call', status: 'completed', name: tc.function?.name || (tc as any).name, arguments: formattedArgs })
           })
         }
         if (chunk.isFinal) {
-          const finalOutput = []
-          if (bufferedContent) {
-              finalOutput.push({ id: `item_${requestId}`, type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'text', text: bufferedContent }] })
-          }
-          finalOutput.push(...bufferedItems)
-
           resolve({
             id: `resp_${requestId}`,
             object: 'response',
