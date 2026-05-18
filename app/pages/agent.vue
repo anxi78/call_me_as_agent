@@ -187,75 +187,92 @@ const parseToolCalls = (id: string) => {
 }
 
 const sendPart = async (id: string) => {
-  submitting.value[id] = true
-  try {
-    const toolCalls = parseToolCalls(id)
-    let content = responses.value[id] || ''
+  const toolCalls = parseToolCalls(id)
+  let content = responses.value[id] || ''
+  const isStreaming = simulateStream.value[id] !== false
 
-    // Auto-append newline for multi-turn feel
-    if (content && !content.endsWith('\n')) {
-      content += '\n'
-    }
+  // Clear local input immediately to allow next typing
+  responses.value[id] = ''
+  structuredToolCalls.value[id] = []
 
-    await $fetch('/api/internal/respond', {
-      method: 'POST',
-      body: {
-        id,
-        response: content,
-        toolCalls: toolCalls.length > 0 ? toolCalls : null,
-        simulateStream: simulateStream.value[id] !== false
+  enqueueAction(id, async () => {
+    submitting.value[id] = true
+    try {
+      // Auto-append newline for multi-turn feel
+      if (content && !content.endsWith('\n')) {
+        content += '\n'
       }
-    })
 
-    if (!sentHistory.value[id]) sentHistory.value[id] = []
-    sentHistory.value[id].push({
-      role: 'assistant',
-      content: content,
-      tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-      _is_manual: true
-    })
+      await $fetch('/api/internal/respond', {
+        method: 'POST',
+        body: {
+          id,
+          response: content,
+          toolCalls: toolCalls.length > 0 ? toolCalls : null,
+          simulateStream: isStreaming
+        }
+      })
 
-    responses.value[id] = ''
-    structuredToolCalls.value[id] = []
-    toast.add({ title: t('response_sent'), color: 'success' })
-    scrollToBottom()
-  } catch (error) {
-    console.error('Failed to send part:', error)
-    toast.add({ title: t('response_failed'), color: 'error' })
-  } finally {
-    submitting.value[id] = false
-  }
+      if (!sentHistory.value[id]) sentHistory.value[id] = []
+      sentHistory.value[id].push({
+        role: 'assistant',
+        content: content,
+        tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+        _is_manual: true
+      })
+
+      toast.add({ title: t('response_sent'), color: 'success' })
+      scrollToBottom()
+
+      // If streaming, we wait for a bit to let the client "consume" the stream
+      if (isStreaming) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+    } catch (error) {
+      console.error('Failed to send part:', error)
+      toast.add({ title: t('response_failed'), color: 'error' })
+    } finally {
+      submitting.value[id] = false
+    }
+  })
 }
 
 const finish = async (id: string) => {
-  finishing.value[id] = true
-  try {
-    const toolCalls = parseToolCalls(id)
-    const content = responses.value[id] || ''
+  const toolCalls = parseToolCalls(id)
+  const content = responses.value[id] || ''
+  const isStreaming = simulateStream.value[id] !== false
 
-    await $fetch('/api/internal/finish', {
-      method: 'POST',
-      body: {
-        id,
-        response: content,
-        toolCalls: toolCalls.length > 0 ? toolCalls : null,
-        simulateStream: simulateStream.value[id] !== false
-      }
-    })
+  responses.value[id] = ''
+  structuredToolCalls.value[id] = []
 
-    delete responses.value[id]
-    delete structuredToolCalls.value[id]
-    delete simulateStream.value[id]
-    delete sentHistory.value[id]
-    await refresh()
-    toast.add({ title: t('response_sent'), color: 'success' })
-    scrollToBottom()
-  } catch (error) {
-    console.error('Failed to finish request:', error)
-    toast.add({ title: t('response_failed'), color: 'error' })
-  } finally {
-    finishing.value[id] = false
-  }
+  enqueueAction(id, async () => {
+    finishing.value[id] = true
+    try {
+      await $fetch('/api/internal/finish', {
+        method: 'POST',
+        body: {
+          id,
+          response: content,
+          toolCalls: toolCalls.length > 0 ? toolCalls : null,
+          simulateStream: isStreaming
+        }
+      })
+
+      delete responses.value[id]
+      delete structuredToolCalls.value[id]
+      delete simulateStream.value[id]
+      delete sentHistory.value[id]
+      delete responseQueue.value[id]
+      await refresh()
+      toast.add({ title: t('response_sent'), color: 'success' })
+      scrollToBottom()
+    } catch (error) {
+      console.error('Failed to finish request:', error)
+      toast.add({ title: t('response_failed'), color: 'error' })
+    } finally {
+      finishing.value[id] = false
+    }
+  })
 }
 
 const getMessages = (payload: any) => {
@@ -746,109 +763,112 @@ const availableTools = computed(() => {
           </div>
 
           <!-- Fixed Response Footer -->
-          <section class="flex-shrink-0 p-4 md:p-6 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            <div class="flex flex-col w-full space-y-4">
-              <div class="flex flex-col w-full space-y-2">
-                <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">{{ t('manual_response') }}</label>
-                <UTextarea
-                  v-model="responses[activeRequest.id]"
-                  :placeholder="t('text_placeholder')"
-                  :rows="3"
-                  autoresize
-                  class="w-full shadow-sm"
-                />
-              </div>
-
-              <!-- Structured Tool Calls -->
-              <div class="flex flex-col w-full space-y-3">
-                <div class="flex items-center justify-between">
-                  <label class="text-xs font-medium text-gray-500">{{ t('tool_calls') }}</label>
-                  <UButton
-                    size="xs"
-                    variant="ghost"
-                    color="neutral"
-                    @click="addToolCall(activeRequest.id)"
-                  >
-                    {{ t('custom_tool') }}
-                  </UButton>
+          <section class="flex-shrink-0 p-4 md:p-6 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] max-h-[60vh] flex flex-col">
+            <div class="flex flex-col w-full space-y-4 overflow-hidden">
+              <!-- Scrollable Content Area -->
+              <div class="flex-1 overflow-y-auto space-y-4 min-h-0 pr-1">
+                <div class="flex flex-col w-full space-y-2">
+                  <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">{{ t('manual_response') }}</label>
+                  <UTextarea
+                    v-model="responses[activeRequest.id]"
+                    :placeholder="t('text_placeholder')"
+                    :rows="3"
+                    autoresize
+                    class="w-full shadow-sm"
+                  />
                 </div>
 
-                <!-- Tool Buttons (Responsive Scroll) -->
-                <div
-                  v-if="availableTools.length"
-                  class="flex overflow-x-auto gap-1 pb-2 no-scrollbar"
-                >
-                  <UButton
-                    v-for="tool in availableTools"
-                    :key="tool.function?.name || tool.name"
-                    size="xs"
-                    variant="soft"
-                    color="primary"
-                    class="flex-shrink-0"
-                    icon="i-lucide-plus"
-                    @click="addToolCall(activeRequest.id, tool)"
-                  >
-                    {{ tool.function?.name || tool.name }}
-                  </UButton>
-                </div>
+                <!-- Structured Tool Calls -->
+                <div class="flex flex-col w-full space-y-3">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-medium text-gray-500">{{ t('tool_calls') }}</label>
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="neutral"
+                      @click="addToolCall(activeRequest.id)"
+                    >
+                      {{ t('custom_tool') }}
+                    </UButton>
+                  </div>
 
-                <div
-                  v-if="structuredToolCalls[activeRequest.id]?.length"
-                  class="flex flex-col gap-4 max-h-[30vh] sm:max-h-[400px] lg:max-h-[500px] overflow-y-auto p-1 mb-2"
-                >
-                  <UCard
-                    v-for="(tc, idx) in structuredToolCalls[activeRequest.id]"
-                    :key="tc.id"
-                    size="sm"
-                    class="w-full flex-shrink-0 relative group border-primary-200 dark:border-primary-900 shadow-sm bg-primary-50/30 dark:bg-primary-950/20 transition-all"
+                  <!-- Tool Buttons (Responsive Scroll) -->
+                  <div
+                    v-if="availableTools.length"
+                    class="flex overflow-x-auto gap-1 pb-2 no-scrollbar"
                   >
-                    <template #header>
-                      <div class="flex justify-between items-center py-1">
-                        <div class="flex items-center gap-2">
-                          <UIcon
-                            name="i-lucide-wrench"
-                            class="text-primary-500 w-4 h-4"
+                    <UButton
+                      v-for="tool in availableTools"
+                      :key="tool.function?.name || tool.name"
+                      size="xs"
+                      variant="soft"
+                      color="primary"
+                      class="flex-shrink-0"
+                      icon="i-lucide-plus"
+                      @click="addToolCall(activeRequest.id, tool)"
+                    >
+                      {{ tool.function?.name || tool.name }}
+                    </UButton>
+                  </div>
+
+                  <div
+                    v-if="structuredToolCalls[activeRequest.id]?.length"
+                    class="flex flex-col gap-4 p-1 mb-2"
+                  >
+                    <UCard
+                      v-for="(tc, idx) in structuredToolCalls[activeRequest.id]"
+                      :key="tc.id"
+                      size="sm"
+                      class="w-full flex-shrink-0 relative group border-primary-200 dark:border-primary-900 shadow-sm bg-primary-50/30 dark:bg-primary-950/20 transition-all"
+                    >
+                      <template #header>
+                        <div class="flex justify-between items-center py-1">
+                          <div class="flex items-center gap-2">
+                            <UIcon
+                              name="i-lucide-wrench"
+                              class="text-primary-500 w-4 h-4"
+                            />
+                            <span class="text-xs font-bold font-mono text-primary-700 dark:text-primary-400">{{ tc.name }}</span>
+                          </div>
+                          <UButton
+                            icon="i-lucide-trash"
+                            size="xs"
+                            color="error"
+                            variant="ghost"
+                            @click="removeToolCall(activeRequest.id, idx)"
                           />
-                          <span class="text-xs font-bold font-mono text-primary-700 dark:text-primary-400">{{ tc.name }}</span>
+                        </div>
+                      </template>
+                      <div class="grid grid-cols-1 gap-2">
+                        <div
+                          v-for="(val, key) in tc.arguments"
+                          :key="key"
+                          class="space-y-1"
+                        >
+                          <label class="text-[9px] font-bold text-gray-400 uppercase">{{ key }}</label>
+                          <ToolParameterEditor
+                            v-model="tc.arguments[key]"
+                            :schema="tc.parameters?.[key]"
+                            :name="key as unknown as string"
+                          />
                         </div>
                         <UButton
-                          icon="i-lucide-trash"
                           size="xs"
-                          color="error"
                           variant="ghost"
-                          @click="removeToolCall(activeRequest.id, idx)"
-                        />
+                          icon="i-lucide-plus"
+                          class="w-fit"
+                          @click="promptNewParameter(tc)"
+                        >
+                          {{ t('add_parameter') }}
+                        </UButton>
                       </div>
-                    </template>
-                    <div class="grid grid-cols-1 gap-2">
-                      <div
-                        v-for="(val, key) in tc.arguments"
-                        :key="key"
-                        class="space-y-1"
-                      >
-                        <label class="text-[9px] font-bold text-gray-400 uppercase">{{ key }}</label>
-                        <ToolParameterEditor
-                          v-model="tc.arguments[key]"
-                          :schema="tc.parameters?.[key]"
-                          :name="key as unknown as string"
-                        />
-                      </div>
-                      <UButton
-                        size="xs"
-                        variant="ghost"
-                        icon="i-lucide-plus"
-                        class="w-fit"
-                        @click="promptNewParameter(tc)"
-                      >
-                        {{ t('add_parameter') }}
-                      </UButton>
-                    </div>
-                  </UCard>
+                    </UCard>
+                  </div>
                 </div>
               </div>
 
-              <!-- Action Bar -->
-              <div class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 border-t border-gray-50 dark:border-gray-800">
+              <!-- Action Bar (Always Fixed at bottom of footer) -->
+              <div class="flex-shrink-0 flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-gray-100 dark:border-gray-800 bg-inherit">
                 <div class="flex items-center gap-2">
                   <span class="text-xs text-gray-500 font-medium">{{ t('simulate_stream') }}</span>
                   <USwitch
@@ -863,13 +883,14 @@ const availableTools = computed(() => {
                     variant="soft"
                     size="lg"
                     class="flex-1 sm:flex-none justify-center"
-                    :disabled="!responses[activeRequest?.id || ''] && (!structuredToolCalls[activeRequest?.id || ''] || structuredToolCalls[activeRequest?.id || '']?.length === 0)"
+                    :disabled="finishing[activeRequest?.id || ''] || (!responses[activeRequest?.id || ''] && (!structuredToolCalls[activeRequest?.id || ''] || structuredToolCalls[activeRequest?.id || '']?.length === 0))"
                     @click="sendPart(activeRequest.id)"
                   >
                     {{ t('send_to_client') }}
                   </UButton>
                   <UButton
                     :loading="finishing[activeRequest.id]"
+                    :disabled="submitting[activeRequest?.id || '']"
                     color="primary"
                     size="lg"
                     class="flex-1 sm:flex-none justify-center"
