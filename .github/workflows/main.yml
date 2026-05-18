@@ -1,31 +1,28 @@
 name: Nuxt Build
 
 on:
-  workflow_dispatch:   # 手动点按钮触发
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: Build Nuxt
-        run: npm run build
+      - run: npm run build
 
+      # ✅ 关键：强制保留 .output（绕过 gitignore）
       - name: Upload .output
         uses: actions/upload-artifact@v4
         with:
           name: nuxt-output
           path: .output
-          retention-days: 7
+          include-hidden-files: true
