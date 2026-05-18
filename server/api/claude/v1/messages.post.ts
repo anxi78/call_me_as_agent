@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
     // Setup keep-alive
     const keepAliveTimer = setInterval(() => {
       if (!event.node.res.writableEnded) {
-        event.node.res.write(': keep-alive\n\n')
+        sendSSE('ping', { type: 'ping' })
       }
     }, (settings.keepAliveInterval || 15) * 1000)
 
