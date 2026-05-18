@@ -18,6 +18,9 @@ export interface AppSettings {
   // Visibility Toggles
   showPendingCountPublic: boolean
   showApiKeyPublic: boolean
+  showTokensPublic: boolean
+  tokensLabel: string
+  toastTimeout: number
 }
 
 const defaultSettings: AppSettings = {
@@ -33,7 +36,10 @@ const defaultSettings: AppSettings = {
   streamSpeed: 30,
   keepAliveInterval: 15,
   showPendingCountPublic: true,
-  showApiKeyPublic: true
+  showApiKeyPublic: true,
+  showTokensPublic: true,
+  tokensLabel: '',
+  toastTimeout: 3000
 }
 
 const settingsPath = path.resolve(process.cwd(), '.data', 'settings.json')

@@ -1,5 +1,9 @@
+import { getSettings } from '../utils/settingsManager'
+import { getStats } from '../utils/statsManager'
+
 export default defineEventHandler((_event) => {
   const settings = getSettings()
+  const stats = getStats()
   // Return only safe-to-share settings
   return {
     siteTitle: settings.siteTitle,
@@ -13,7 +17,11 @@ export default defineEventHandler((_event) => {
     pendingRequestsLabel: settings.pendingRequestsLabel,
     showPendingCountPublic: settings.showPendingCountPublic,
     showApiKeyPublic: settings.showApiKeyPublic,
-    enableApiKeyAuth: settings.enableApiKeyAuth
+    enableApiKeyAuth: settings.enableApiKeyAuth,
+    showTokensPublic: settings.showTokensPublic,
+    tokensLabel: settings.tokensLabel,
+    tokensInputToday: stats.tokensInputToday,
+    tokensOutputToday: stats.tokensOutputToday
     // Do NOT return the actual apiKey here
   }
 })

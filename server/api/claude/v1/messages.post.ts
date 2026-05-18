@@ -135,6 +135,11 @@ export default defineEventHandler(async (event) => {
             usage: { output_tokens: completionTokens }
           })
           sendSSE('message_stop', { type: 'message_stop' })
+          
+          import('../../utils/statsManager').then(({ incrementTokens }) => {
+            incrementTokens(promptTokens, completionTokens)
+          })
+
           event.node.res.end()
           resolve()
         }
@@ -170,6 +175,10 @@ export default defineEventHandler(async (event) => {
         }
 
         if (chunk.isFinal) {
+          import('../../utils/statsManager').then(({ incrementTokens }) => {
+            incrementTokens(promptTokens, completionTokens)
+          })
+
           resolve({
             id: `msg-${requestId}`,
             type: 'message',

@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    pushToRequest(id, { content: response || '', toolCalls, simulateStream })
+    await pushToRequest(id, { content: response || '', toolCalls, simulateStream })
     return { success: true }
   } catch (error: any) {
     throw createError({

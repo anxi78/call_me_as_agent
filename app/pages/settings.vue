@@ -20,7 +20,10 @@ const settingsForm = ref({
   primaryColor: 'green',
   language: 'zh',
   showPendingCountPublic: true,
-  showApiKeyPublic: true
+  showApiKeyPublic: true,
+  showTokensPublic: true,
+  tokensLabel: '',
+  toastTimeout: 3000
 })
 
 const logoInput = ref<HTMLInputElement | null>(null)
@@ -347,15 +350,37 @@ const saveSettings = async () => {
             </UFormField>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <UFormField
-                :label="t('pending_requests_label')"
-                :description="t('pending_requests_label_desc')"
-              >
-                <UInput
-                  v-model="settingsForm.pendingRequestsLabel"
-                  :placeholder="t('pending_requests')"
-                />
-              </UFormField>
+              <div class="space-y-4">
+                <UFormField
+                  :label="t('pending_requests_label')"
+                  :description="t('pending_requests_label_desc')"
+                >
+                  <UInput
+                    v-model="settingsForm.pendingRequestsLabel"
+                    :placeholder="t('pending_requests')"
+                  />
+                </UFormField>
+                <UFormField
+                  label="Tokens Label"
+                  description="Custom label for tokens display"
+                >
+                  <UInput
+                    v-model="settingsForm.tokensLabel"
+                    placeholder="Tokens"
+                  />
+                </UFormField>
+                <UFormField
+                  label="Toast Timeout (ms)"
+                  description="Duration for toast notifications"
+                >
+                  <UInput
+                    v-model="settingsForm.toastTimeout"
+                    type="number"
+                    min="1000"
+                    max="10000"
+                  />
+                </UFormField>
+              </div>
               <div class="space-y-4">
                 <UFormField
                   :label="t('show_pending_count')"
@@ -368,6 +393,12 @@ const saveSettings = async () => {
                   :description="t('show_api_key_hints_desc')"
                 >
                   <USwitch v-model="settingsForm.showApiKeyPublic" />
+                </UFormField>
+                <UFormField
+                  label="Show Tokens"
+                  description="Display token usage on the public dashboard"
+                >
+                  <USwitch v-model="settingsForm.showTokensPublic" />
                 </UFormField>
               </div>
             </div>

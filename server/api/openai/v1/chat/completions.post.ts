@@ -127,6 +127,11 @@ export default defineEventHandler(async (event) => {
           }
           sendChunk(lastChunk)
           event.node.res.write('data: [DONE]\n\n')
+          
+          import('../../../../utils/statsManager').then(({ incrementTokens }) => {
+            incrementTokens(promptTokens, completionTokens)
+          })
+
           event.node.res.end()
           resolve()
         }

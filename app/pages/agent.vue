@@ -220,11 +220,11 @@ const sendPart = async (id: string) => {
       _is_manual: true
     })
 
-    toast.add({ title: t('response_sent'), color: 'success' })
+    toast.add({ title: t('response_sent'), color: 'primary', timeout: settings.value?.toastTimeout || 3000 })
     scrollToBottom()
   } catch (error) {
     console.error('Failed to send part:', error)
-    toast.add({ title: t('response_failed'), color: 'error' })
+    toast.add({ title: t('response_failed'), color: 'error', timeout: settings.value?.toastTimeout || 3000 })
   } finally {
     submitting.value[id] = false
   }
@@ -255,19 +255,18 @@ const finish = async (id: string) => {
     delete simulateStream.value[id]
     delete sentHistory.value[id]
     await refresh()
-    toast.add({ title: t('response_sent'), color: 'success' })
+    toast.add({ title: t('response_sent'), color: 'primary', timeout: settings.value?.toastTimeout || 3000 })
     scrollToBottom()
   } catch (error) {
     console.error('Failed to finish request:', error)
-    toast.add({ title: t('response_failed'), color: 'error' })
+    toast.add({ title: t('response_failed'), color: 'error', timeout: settings.value?.toastTimeout || 3000 })
   } finally {
     finishing.value[id] = false
   }
 }
 
-const getMessages = (payload: any) => {
+const getMessages = (payload: any, reqId: string) => {
   let messages: any[] = []
-  const requestId = activeRequestId.value
 
   const extractText = (content: any): string => {
     if (typeof content === 'string') return content
@@ -315,8 +314,8 @@ const getMessages = (payload: any) => {
     }
   }
 
-  if (requestId && sentHistory.value[requestId]) {
-    messages = [...messages, ...sentHistory.value[requestId]]
+  if (reqId && sentHistory.value[reqId]) {
+    messages = [...messages, ...sentHistory.value[reqId]]
   }
 
   return messages.map((m) => {
@@ -515,10 +514,18 @@ const availableTools = computed(() => {
                 >
                   {{ req.type.toUpperCase() }}
                 </UBadge>
-                <span class="text-[10px] text-gray-400">{{ formatTimestamp(req.timestamp) }}</span>
+                <div class="flex items-center gap-2">
+                  <span
+                    v-if="submitting[req.id]"
+                    class="text-[10px] text-primary-500 font-bold animate-pulse flex items-center gap-1"
+                  >
+                    <UIcon name="i-lucide-loader-2" class="animate-spin" /> Sending...
+                  </span>
+                  <span class="text-[10px] text-gray-400">{{ formatTimestamp(req.timestamp) }}</span>
+                </div>
               </div>
               <div class="text-sm font-medium truncate">
-                {{ getMessages(req.payload).slice(-1)[0]?.content || 'Multimodal/Tool Call' }}
+                {{ getMessages(req.payload, req.id).slice(-1)[0]?.content || 'Multimodal/Tool Call' }}
               </div>
               <div class="text-[10px] text-gray-500 font-mono mt-1">
                 ID: {{ req.id.slice(0, 8) }}

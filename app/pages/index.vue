@@ -33,6 +33,20 @@ const statusItems = computed(() => {
     icon: 'i-lucide-lock',
     color: 'info'
   })
+  if (settings.value?.showTokensPublic) {
+    items.push({
+      label: `${settings.value?.tokensLabel || 'Tokens'} (In)`,
+      value: (settings.value?.tokensInputToday || 0).toLocaleString(),
+      icon: 'i-lucide-arrow-right-to-line',
+      color: 'indigo'
+    })
+    items.push({
+      label: `${settings.value?.tokensLabel || 'Tokens'} (Out)`,
+      value: (settings.value?.tokensOutputToday || 0).toLocaleString(),
+      icon: 'i-lucide-arrow-up-circle',
+      color: 'violet'
+    })
+  }
   return items
 })
 

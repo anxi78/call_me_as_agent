@@ -218,6 +218,10 @@ export default defineEventHandler(async (event) => {
             response: finalResponse
           })
 
+          import('../../../../utils/statsManager').then(({ incrementTokens }) => {
+            incrementTokens(promptTokens, completionTokens)
+          })
+
           await new Promise(r => setTimeout(r, 200))
           event.node.res.end()
           resolve()

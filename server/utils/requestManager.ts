@@ -54,23 +54,27 @@ export const getPendingRequests = () => {
   }))
 }
 
-export const pushToRequest = (id: string, chunk: Omit<RequestChunk, 'isFinal'>) => {
+export const pushToRequest = (id: string, chunk: Omit<RequestChunk, 'isFinal'>): Promise<void> => {
   const request = pendingRequests.get(id)
   if (!request) throw new Error(`Request ${id} not found`)
 
-  request.queue = request.queue.then(async () => {
+  const promise = request.queue.then(async () => {
     await request.onData({ ...chunk, isFinal: false })
   })
+  request.queue = promise
   console.log(`[RequestManager] Queued data for request: ${id}`)
+  return promise
 }
 
-export const finishRequest = (id: string, chunk?: Omit<RequestChunk, 'isFinal'>) => {
+export const finishRequest = (id: string, chunk?: Omit<RequestChunk, 'isFinal'>): Promise<void> => {
   const request = pendingRequests.get(id)
   if (!request) throw new Error(`Request ${id} not found`)
 
-  request.queue = request.queue.then(async () => {
+  const promise = request.queue.then(async () => {
     await request.onData({ ...chunk, isFinal: true })
     pendingRequests.delete(id)
     console.log(`[RequestManager] Finished request: ${id}`)
   })
+  request.queue = promise
+  return promise
 }
