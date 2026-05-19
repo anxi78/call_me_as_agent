@@ -69,7 +69,7 @@ const siteSubtitle = computed(() => (settings.value?.siteSubtitle as string) || 
             class="w-20 h-20 rounded-2xl overflow-hidden shadow-lg border border-white dark:border-gray-800"
           >
             <img
-              :src="settings.siteLogo"
+              :src="(settings?.siteLogo as string)"
               class="w-full h-full object-cover"
               :alt="siteTitle"
             >

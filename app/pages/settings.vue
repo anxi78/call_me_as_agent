@@ -30,7 +30,9 @@ const settingsForm = ref({
   showApiKeyPublic: true,
   showTokensPublic: true,
   tokensLabel: '',
-  toastTimeout: 3000
+  toastTimeout: 3000,
+  useHeaderForIp: true,
+  ipHeaderName: 'x-forwarded-for'
 })
 
 const isOtpModalOpen = ref(false)

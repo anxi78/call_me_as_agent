@@ -355,12 +355,14 @@ const getMessages = (payload: Record<string, any>, reqId: string) => {
         if (c.type === 'text') return c.text
         if (c.type === 'tool_use') return `[Tool Use: ${c.name}]`
         if (c.type === 'tool_result') return extractText(c.content)
+        if (['image_url', 'image', 'input_image'].includes(c.type)) return ''
         return c.text || c.output || c.arguments || JSON.stringify(c)
-      }).join('\n')
+      }).filter(Boolean).join('\n')
     }
     const cObj = content as Record<string, any>
     if (cObj?.type === 'text') return cObj.text
     if (cObj?.type === 'tool_result') return extractText(cObj.content)
+    if (['image_url', 'image', 'input_image'].includes(cObj?.type)) return ''
     return cObj?.text || cObj?.output || cObj?.arguments || JSON.stringify(cObj)
   }
 
@@ -417,9 +419,15 @@ const getMessages = (payload: Record<string, any>, reqId: string) => {
         if (c.type === 'text') {
           textContent += (textContent ? '\n' : '') + c.text
         } else if (c.type === 'image_url') {
-          images.push(c.image_url.url)
+          images.push(c.image_url.url || c.image_url)
         } else if (c.type === 'image') {
           images.push(`data:${c.source.media_type};base64,${c.source.data}`)
+        } else if (c.type === 'input_image') {
+          let url = typeof c.image_url === 'string' ? c.image_url : (c.image_url?.url || '')
+          if (url && !url.startsWith('http') && !url.startsWith('data:')) {
+            url = `data:image/jpeg;base64,${url}`
+          }
+          if (url) images.push(url)
         } else if (c.type === 'tool_use') {
           toolCalls.push(c)
         } else if (c.type === 'tool_result') {
@@ -479,7 +487,7 @@ const availableTools = computed(() => {
               class="w-16 h-16 rounded-2xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-800"
             >
               <img
-                :src="settings.siteLogo"
+                :src="settings.siteLogo as string"
                 class="w-full h-full object-cover"
               >
             </div>
@@ -557,7 +565,7 @@ const availableTools = computed(() => {
               class="w-8 h-8 rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800"
             >
               <img
-                :src="settings.siteLogo"
+                :src="settings.siteLogo as string"
                 class="w-full h-full object-cover"
               >
             </div>
@@ -710,7 +718,7 @@ const availableTools = computed(() => {
               class="w-6 h-6 rounded border border-gray-100 dark:border-gray-800 overflow-hidden"
             >
               <img
-                :src="settings.siteLogo"
+                :src="settings.siteLogo as string"
                 class="w-full h-full object-cover"
               >
             </div>
