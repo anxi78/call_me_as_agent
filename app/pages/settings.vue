@@ -319,7 +319,6 @@ const saveSettings = async () => {
                   <p class="text-xs text-gray-500">{{ t('enable_otp_desc') }}</p>
                 </div>
                 <div class="flex items-center gap-2">
-                  <UBadge v-if="settingsForm.enableOtpAuth" color="success" variant="subtle">{{ t('enabled') }}</UBadge>
                   <UButton v-if="!settingsForm.enableOtpAuth" size="sm" color="primary" @click="openOtpSetup">{{ t('otp_setup_title') }}</UButton>
                   <UButton v-else size="sm" color="error" variant="soft" @click="disableOtp">{{ t('disabled') }}</UButton>
                 </div>
@@ -337,37 +336,37 @@ const saveSettings = async () => {
       </div>
     </main>
 
-    <!-- OTP Setup Modal - WRAPPED IN v-if AND template #content -->
+    <!-- OTP Setup Modal -->
     <UModal v-if="isOtpModalOpen" v-model:open="isOtpModalOpen">
       <template #content>
-        <UCard>
+        <UCard class="max-w-sm mx-auto">
           <template #header>
             <div class="flex items-center justify-between">
               <h3 class="text-base font-semibold leading-6">{{ t('otp_setup_title') }}</h3>
               <UButton color="neutral" variant="ghost" icon="i-lucide-x" class="-my-1" @click="isOtpModalOpen = false" />
             </div>
           </template>
-          <div class="space-y-6 py-2">
-            <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('otp_setup_step1') }}</p>
-            <div class="space-y-4 text-center">
-              <p class="text-sm text-gray-600 dark:text-gray-400 text-left">{{ t('otp_setup_step2') }}</p>
-              <div class="flex justify-center bg-white p-4 rounded-xl inline-block mx-auto border border-gray-100">
-                <img v-if="otpSetupData?.qrCodeDataUrl" :src="otpSetupData.qrCodeDataUrl" class="w-48 h-48" alt="OTP QR Code">
+          <div class="space-y-4 py-1">
+            <p class="text-xs text-gray-600 dark:text-gray-400">{{ t('otp_setup_step1') }}</p>
+            <div class="space-y-3 text-center">
+              <p class="text-xs text-gray-600 dark:text-gray-400 text-left">{{ t('otp_setup_step2') }}</p>
+              <div class="flex justify-center bg-white p-2 rounded-lg inline-block mx-auto border border-gray-100">
+                <img v-if="otpSetupData?.qrCodeDataUrl" :src="otpSetupData.qrCodeDataUrl" class="w-40 h-48 md:w-48" style="object-fit: contain" alt="OTP QR Code">
               </div>
-              <div class="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-800 text-left">
-                <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">{{ t('otp_secret_label') }}</label>
-                <code class="text-xs font-mono break-all text-primary-600 dark:text-primary-400">{{ otpSetupData?.secret }}</code>
+              <div class="bg-gray-50 dark:bg-gray-900 p-2 rounded-lg border border-gray-100 dark:border-gray-800 text-left">
+                <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-0.5">{{ t('otp_secret_label') }}</label>
+                <code class="text-[10px] font-mono break-all text-primary-600 dark:text-primary-400">{{ otpSetupData?.secret }}</code>
               </div>
             </div>
-            <div class="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <p class="text-sm text-gray-600 dark:text-gray-400">{{ t('otp_setup_step3') }}</p>
-              <UInput v-model="otpVerificationCode" placeholder="000000" class="w-full text-center text-lg tracking-[0.5em]" maxlength="6" @keyup.enter="verifyAndEnableOtp" />
+            <div class="space-y-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+              <p class="text-xs text-gray-600 dark:text-gray-400">{{ t('otp_setup_step3') }}</p>
+              <UInput v-model="otpVerificationCode" placeholder="000000" class="w-full text-center text-lg" maxlength="6" @keyup.enter="verifyAndEnableOtp" />
             </div>
           </div>
           <template #footer>
-            <div class="flex justify-end gap-3">
-              <UButton variant="ghost" color="neutral" @click="isOtpModalOpen = false">{{ t('cancel') }}</UButton>
-              <UButton color="primary" :loading="isVerifyingOtp" :disabled="!otpVerificationCode" @click="verifyAndEnableOtp">{{ t('verify_and_enable') }}</UButton>
+            <div class="flex justify-stretch gap-2">
+              <UButton class="flex-1" variant="ghost" color="neutral" @click="isOtpModalOpen = false">{{ t('cancel') }}</UButton>
+              <UButton class="flex-1" color="primary" :loading="isVerifyingOtp" :disabled="!otpVerificationCode" @click="verifyAndEnableOtp">{{ t('verify_and_enable') }}</UButton>
             </div>
           </template>
         </UCard>
