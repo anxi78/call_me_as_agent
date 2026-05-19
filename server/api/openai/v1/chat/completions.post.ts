@@ -171,7 +171,7 @@ export default defineEventHandler(async (event) => {
     // Non-streaming: Wait for final chunk
     return new Promise((resolve) => {
       let bufferedContent = ''
-      const bufferedTools: Record<string, unknown>[] = []
+      const bufferedTools: ToolCall[] = []
 
       request.onData = async (chunk) => {
         if (chunk.content) bufferedContent += chunk.content

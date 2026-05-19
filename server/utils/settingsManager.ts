@@ -24,6 +24,8 @@ export interface AppSettings {
   showTokensPublic: boolean
   tokensLabel: string
   toastTimeout: number
+  useHeaderForIp: boolean
+  ipHeaderName: string
 }
 
 const defaultSettings: AppSettings = {
@@ -45,7 +47,9 @@ const defaultSettings: AppSettings = {
   showApiKeyPublic: true,
   showTokensPublic: true,
   tokensLabel: '',
-  toastTimeout: 3000
+  toastTimeout: 3000,
+  useHeaderForIp: true,
+  ipHeaderName: 'x-forwarded-for'
 }
 
 const settingsPath = path.resolve(process.cwd(), '.data', 'settings.json')

@@ -31,9 +31,9 @@ const addArrayItem = () => {
   if (itemSchema.type === 'object') {
     const obj: Record<string, unknown> = {}
     if (itemSchema.properties) {
-      const props = itemSchema.properties as Record<string, Record<string, unknown>>
-      Object.keys(props).forEach((k) => {
-        obj[k] = props[k].type === 'array' ? [] : (props[k].type === 'object' ? {} : '')
+      const properties = itemSchema.properties as Record<string, Record<string, unknown>>
+      Object.keys(properties).forEach((k) => {
+        obj[k] = properties[k]?.type === 'array' ? [] : (properties[k]?.type === 'object' ? {} : '')
       })
     }
     newItem = obj
@@ -106,7 +106,7 @@ const removeObjectKey = (key: string) => {
 
           <ToolParameterEditor
             :model-value="item"
-            :schema="schema?.items"
+            :schema="(schema?.items as Record<string, unknown> | undefined)"
             @update:model-value="updateArrayItem(Number(idx), $event)"
           />
         </div>
@@ -140,7 +140,7 @@ const removeObjectKey = (key: string) => {
           </div>
           <ToolParameterEditor
             :model-value="val"
-            :schema="schema?.properties?.[key]"
+            :schema="(schema?.properties as Record<string, Record<string, unknown>> | undefined)?.[key]"
             :name="key as string"
             @update:model-value="updateObjectKey(key as string, $event)"
           />
@@ -160,8 +160,8 @@ const removeObjectKey = (key: string) => {
       <!-- Support for Enum -->
       <div v-if="schema?.enum">
         <USelect
-          :model-value="modelValue"
-          :items="schema.enum"
+          :model-value="(modelValue as string)"
+          :items="(schema.enum as any[])"
           size="sm"
           class="w-full"
           @update:model-value="updateValue"
@@ -181,7 +181,7 @@ const removeObjectKey = (key: string) => {
       <UInput
         v-else-if="schema?.type === 'number' || schema?.type === 'integer'"
         type="number"
-        :model-value="modelValue"
+        :model-value="(modelValue as any)"
         size="sm"
         class="font-mono w-full"
         @update:model-value="updateValue"
@@ -196,7 +196,7 @@ const removeObjectKey = (key: string) => {
       />
       <UInput
         v-else
-        :model-value="modelValue"
+        :model-value="(modelValue as string)"
         size="sm"
         class="font-mono w-full"
         @update:model-value="updateValue"

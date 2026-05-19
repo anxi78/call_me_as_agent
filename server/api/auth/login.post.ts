@@ -21,10 +21,15 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const settings = getSettings()
 
-  const forwardedHeader = getHeader(event, 'x-forwarded-for')
   let ip: string
-  if (typeof forwardedHeader === 'string' && forwardedHeader.length > 0) {
-    ip = forwardedHeader.split(',')[0]?.trim() || 'unknown'
+  if (settings.useHeaderForIp && settings.ipHeaderName) {
+    const headerName = settings.ipHeaderName.toLowerCase()
+    const forwardedHeader = getHeader(event, headerName)
+    if (typeof forwardedHeader === 'string' && forwardedHeader.length > 0) {
+      ip = forwardedHeader.split(',')[0]?.trim() || 'unknown'
+    } else {
+      ip = getRequestIP(event) || 'unknown'
+    }
   } else {
     ip = getRequestIP(event) || 'unknown'
   }

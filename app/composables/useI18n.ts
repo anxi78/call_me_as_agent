@@ -113,7 +113,11 @@ const translations = {
     invalid_otp: '验证码无效',
     otp_enabled_success: 'OTP 认证已启用',
     otp_disabled_success: 'OTP 认证已禁用',
-    disable: '停用'
+    disable: '停用',
+    use_header_for_ip: '使用 Header 识别 IP',
+    use_header_for_ip_desc: '从特定的 HTTP 请求头中获取客户端 IP（在使用 Nginx、Cloudflare 等反向代理时很有用）。',
+    ip_header_name: 'IP Header 名称',
+    ip_header_name_desc: '包含客户端 IP 的 HTTP Header 名称（如：x-forwarded-for, cf-connecting-ip）。'
   },
   en: {
     // General
@@ -227,7 +231,11 @@ const translations = {
     invalid_otp: 'Invalid OTP code',
     otp_enabled_success: 'OTP Auth enabled successfully',
     otp_disabled_success: 'OTP Auth disabled successfully',
-    disable: 'Disable'
+    disable: 'Disable',
+    use_header_for_ip: 'Use Header for IP',
+    use_header_for_ip_desc: 'Determine client IP from a specific HTTP header (useful behind reverse proxies like Nginx/Cloudflare).',
+    ip_header_name: 'IP Header Name',
+    ip_header_name_desc: 'The HTTP header containing the client IP (e.g., x-forwarded-for, cf-connecting-ip).'
   }
 }
 

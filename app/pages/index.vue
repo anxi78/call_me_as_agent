@@ -12,10 +12,10 @@ const copyToClipboard = (text: string) => {
 }
 
 const statusItems = computed(() => {
-  const items = []
+  const items: { label: string; value: string | number; icon: string; color: string }[] = []
   if (settings.value?.showPendingCountPublic) {
     items.push({
-      label: settings.value?.pendingRequestsLabel || t('pending_requests'),
+      label: (settings.value?.pendingRequestsLabel as string) || t('pending_requests'),
       value: pendingCount.value,
       icon: 'i-lucide-message-square',
       color: 'primary'
@@ -35,14 +35,14 @@ const statusItems = computed(() => {
   })
   if (settings.value?.showTokensPublic) {
     items.push({
-      label: `${settings.value?.tokensLabel || 'Tokens'} (In)`,
-      value: (settings.value?.tokensInputToday || 0).toLocaleString(),
+      label: `${(settings.value?.tokensLabel as string) || 'Tokens'} (In)`,
+      value: (Number(settings.value?.tokensInputToday) || 0).toLocaleString(),
       icon: 'i-lucide-arrow-right-to-line',
       color: 'indigo'
     })
     items.push({
-      label: `${settings.value?.tokensLabel || 'Tokens'} (Out)`,
-      value: (settings.value?.tokensOutputToday || 0).toLocaleString(),
+      label: `${(settings.value?.tokensLabel as string) || 'Tokens'} (Out)`,
+      value: (Number(settings.value?.tokensOutputToday) || 0).toLocaleString(),
       icon: 'i-lucide-arrow-up-circle',
       color: 'violet'
     })
@@ -50,9 +50,9 @@ const statusItems = computed(() => {
   return items
 })
 
-const baseUrl = computed(() => settings.value?.publicBaseUrl || 'http://localhost:3000')
-const siteTitle = computed(() => settings.value?.siteTitle || 'Call Me As Agent')
-const siteSubtitle = computed(() => settings.value?.siteSubtitle || 'A Human-in-the-loop LLM Proxy Service')
+const baseUrl = computed(() => (settings.value?.publicBaseUrl as string) || 'http://localhost:3000')
+const siteTitle = computed(() => (settings.value?.siteTitle as string) || 'Call Me As Agent')
+const siteSubtitle = computed(() => (settings.value?.siteSubtitle as string) || 'A Human-in-the-loop LLM Proxy Service')
 </script>
 
 <template>

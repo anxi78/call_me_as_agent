@@ -424,6 +424,24 @@ const saveSettings = async () => {
                     </div>
                     <USwitch v-model="settingsForm.showTokensPublic" />
                   </div>
+                  <div class="flex items-center justify-between p-4 rounded-2xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <div class="flex flex-col pr-4">
+                      <span class="text-sm font-bold">{{ t('use_header_for_ip') }}</span>
+                      <span class="text-[10px] text-gray-400 mt-0.5 leading-tight">{{ t('use_header_for_ip_desc') }}</span>
+                    </div>
+                    <USwitch v-model="settingsForm.useHeaderForIp" />
+                  </div>
+                  <UFormField
+                    v-if="settingsForm.useHeaderForIp"
+                    :label="t('ip_header_name')"
+                    :description="t('ip_header_name_desc')"
+                    class="p-4"
+                  >
+                    <UInput
+                      v-model="settingsForm.ipHeaderName"
+                      placeholder="x-forwarded-for"
+                    />
+                  </UFormField>
                 </div>
               </div>
             </div>

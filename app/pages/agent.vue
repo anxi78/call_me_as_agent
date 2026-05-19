@@ -11,6 +11,14 @@ interface PendingRequest {
   }
 }
 
+interface ToolCallItem {
+  id: string
+  name: string
+  description: string
+  arguments: Record<string, unknown>
+  parameters: Record<string, any>
+}
+
 // 1. State declarations first
 const { data: requests, refresh } = useFetch<PendingRequest[]>('/api/internal/requests')
 const { data: settings } = useFetch<Record<string, unknown>>('/api/settings')
@@ -23,7 +31,7 @@ const loginOtpCode = ref('')
 const isLoggingIn = ref(false)
 const isSidebarOpen = ref(false) // NEW: Mobile sidebar state
 const responses = ref<Record<string, string>>({})
-const structuredToolCalls = ref<Record<string, Record<string, unknown>[]>>({})
+const structuredToolCalls = ref<Record<string, ToolCallItem[]>>({})
 const simulateStream = ref<Record<string, boolean>>({})
 const sentHistory = ref<Record<string, Record<string, unknown>[]>>({})
 const submitting = ref<Record<string, boolean>>({})
@@ -125,7 +133,7 @@ watch(requests, (newRequests) => {
         if (!responses.value[r.id]) responses.value[r.id] = r.draft.response
         const tc = structuredToolCalls.value[r.id]
         if (!tc || tc.length === 0) {
-          structuredToolCalls.value[r.id] = r.draft.toolCalls
+          structuredToolCalls.value[r.id] = r.draft.toolCalls as unknown as ToolCallItem[]
         }
       }
     })
@@ -222,10 +230,10 @@ const removeToolCall = (requestId: string, index: number) => {
   structuredToolCalls.value[requestId]?.splice(index, 1)
 }
 
-const promptNewParameter = (tc: Record<string, unknown>) => {
+const promptNewParameter = (tc: ToolCallItem) => {
   const k = window.prompt(t('new_param_name'))
   if (k) {
-    (tc.arguments as Record<string, unknown>)[k] = ''
+    tc.arguments[k] = ''
   }
 }
 
@@ -233,7 +241,7 @@ const parseToolCalls = (id: string) => {
   return (structuredToolCalls.value[id] || []).map((tc) => {
     const parsedArgs: Record<string, unknown> = {}
     for (const [key, val] of Object.entries(tc.arguments)) {
-      const prop = (tc.parameters as Record<string, any>)?.[key]
+      const prop = tc.parameters?.[key]
       if (typeof val === 'string') {
         if (prop?.type === 'number' || prop?.type === 'integer') {
           parsedArgs[key] = val !== '' ? Number(val) : undefined
@@ -247,7 +255,7 @@ const parseToolCalls = (id: string) => {
       }
       if (parsedArgs[key] === undefined) delete parsedArgs[key]
     }
-    return { id: tc.id as string, type: 'function', function: { name: tc.name as string, arguments: JSON.stringify(parsedArgs) } }
+    return { id: tc.id, type: 'function', function: { name: tc.name, arguments: JSON.stringify(parsedArgs) } }
   })
 }
 
@@ -452,7 +460,7 @@ const formatTimestamp = (ts: number) => {
 
 const availableTools = computed(() => {
   if (!activeRequest.value?.payload?.tools) return []
-  return activeRequest.value.payload.tools
+  return activeRequest.value.payload.tools as Record<string, any>[]
 })
 </script>
 
