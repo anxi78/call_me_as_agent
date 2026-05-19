@@ -224,6 +224,16 @@ const siteSubtitle = computed(() => settings.value?.siteSubtitle || 'A Human-in-
           >
             GitHub
           </UButton>
+          <UButton
+            to="https://t.me/call_me_as_agent"
+            target="_blank"
+            variant="link"
+            color="neutral"
+            size="xs"
+            icon="i-simple-icons-telegram"
+          >
+            @call_me_as_agent
+          </UButton>
         </div>
         <div>v1.0.0</div>
       </footer>

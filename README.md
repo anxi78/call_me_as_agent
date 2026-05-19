@@ -90,5 +90,9 @@
 - Tailwind CSS
 - TypeScript
 
+## 💬 交流与反馈
+欢迎加入 Telegram 群组与我们交流：
+- **Telegram Group**: [@call_me_as_agent](https://t.me/call_me_as_agent)
+
 ## 📄 开源协议
 基于 [MIT License](LICENSE) 发布。
