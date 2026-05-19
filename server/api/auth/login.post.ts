@@ -12,7 +12,8 @@ const MAX_ATTEMPTS = 5
 const BLOCK_DURATION_MS = 15 * 60 * 1000 // 15 minutes
 
 export default defineEventHandler(async (event) => {
-  const { password, otpCode } = await readBody(event)
+  const body = await readBody(event)
+  const { password, otpCode, _isSetupVerification, _tempSecret } = body
   const config = useRuntimeConfig()
   const settings = getSettings()
 
@@ -44,25 +45,32 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Verification logic
-  let isPasswordValid = true
-  const token = getCookie(event, 'auth_token')
-  const expectedToken = config.adminPassword || 'authenticated'
+  // Factor Requirement logic
+  const isPasswordRequired = !!(settings.enablePasswordAuth && config.adminPassword)
+  const isOtpRequired = !!settings.enableOtpAuth
 
-  if (config.adminPassword && password !== config.adminPassword) {
-    // If password is wrong, check if we are already authenticated via cookie
-    if (!token || token !== expectedToken) {
-      isPasswordValid = false
+  let isPasswordValid = true
+  if (isPasswordRequired) {
+    if (password !== config.adminPassword) {
+      // Setup verification bypass: if already authenticated via cookie
+      if (_isSetupVerification) {
+        const token = getCookie(event, 'auth_token')
+        const expectedToken = config.adminPassword || 'authenticated'
+        if (!token || token !== expectedToken) {
+          isPasswordValid = false
+        }
+      } else {
+        isPasswordValid = false
+      }
     }
   }
 
   let isOtpValid = true
-  const body = await readBody(event)
-  if (settings.enableOtpAuth || body._isSetupVerification) {
-    const verificationSecret = body._tempSecret || settings.otpSecret
+  if (isOtpRequired || _isSetupVerification) {
+    const verificationSecret = _isSetupVerification ? _tempSecret : settings.otpSecret
     if (!otpCode || !verifySync({
       token: otpCode,
-      secret: verificationSecret,
+      secret: verificationSecret || '',
       strategy: 'totp'
     })) {
       isOtpValid = false
@@ -103,8 +111,16 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Detailed error messages
+  let statusMessage = 'Invalid credentials'
+  if (isPasswordRequired && !isPasswordValid) {
+    statusMessage = 'Invalid password'
+  } else if ((isOtpRequired || _isSetupVerification) && !isOtpValid) {
+    statusMessage = 'Invalid OTP code'
+  }
+
   throw createError({
     statusCode: 401,
-    statusMessage: settings.enableOtpAuth && isPasswordValid ? 'Invalid OTP code' : 'Invalid credentials'
+    statusMessage
   })
 })

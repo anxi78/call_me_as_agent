@@ -5,6 +5,7 @@ export interface AppSettings {
   // Auth
   enableApiKeyAuth: boolean
   apiKey: string
+  enablePasswordAuth: boolean
   enableOtpAuth: boolean
   otpSecret: string
   // UI Customization
@@ -28,6 +29,7 @@ export interface AppSettings {
 const defaultSettings: AppSettings = {
   enableApiKeyAuth: false,
   apiKey: 'sk-human-agent',
+  enablePasswordAuth: true,
   enableOtpAuth: false,
   otpSecret: '',
   siteTitle: 'Call Me As Agent',

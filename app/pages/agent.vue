@@ -12,6 +12,7 @@ const { data: settings } = useFetch<any>('/api/settings')
 const activeRequestId = ref<string | null>(null)
 const isAuthenticated = ref(true)
 const isOtpEnabled = ref(false)
+const isPasswordRequired = ref(false)
 const loginPassword = ref('')
 const loginOtpCode = ref('')
 const isLoggingIn = ref(false)
@@ -74,6 +75,7 @@ const checkAuth = async () => {
   const res: any = await $fetch('/api/auth/check')
   isAuthenticated.value = res.authenticated
   isOtpEnabled.value = res.otpEnabled
+  isPasswordRequired.value = res.passwordRequired
 }
 
 const login = async () => {
@@ -485,6 +487,7 @@ const availableTools = computed(() => {
             {{ t('auth_desc') }}
           </p>
           <UInput
+            v-if="isPasswordRequired"
             v-model="loginPassword"
             type="password"
             placeholder="Enter Password"

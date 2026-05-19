@@ -10,6 +10,7 @@ const checkAuth = async () => {
 const settingsForm = ref({
   enableApiKeyAuth: false,
   apiKey: '',
+  enablePasswordAuth: true,
   enableOtpAuth: false,
   otpSecret: '',
   siteTitle: '',
@@ -492,6 +493,18 @@ const saveSettings = async () => {
             </UFormField>
 
             <div class="pt-6 border-t border-gray-100 dark:border-gray-800">
+              <div class="flex items-center justify-between mb-6">
+                <div>
+                  <h3 class="text-sm font-bold text-gray-900 dark:text-white">
+                    {{ t('password_auth') }}
+                  </h3>
+                  <p class="text-xs text-gray-500">
+                    {{ t('enable_password_desc') }}
+                  </p>
+                </div>
+                <USwitch v-model="settingsForm.enablePasswordAuth" />
+              </div>
+
               <div class="flex items-center justify-between">
                 <div>
                   <h3 class="text-sm font-bold text-gray-900 dark:text-white">
