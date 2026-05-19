@@ -56,7 +56,10 @@ const siteSubtitle = computed(() => (settings.value?.siteSubtitle as string) || 
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-950 p-6 md:p-10 transition-colors">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-950 p-6 md:p-10 transition-colors duration-300">
+    <div class="absolute top-4 right-4 md:top-6 md:right-6">
+      <UColorModeButton size="sm" />
+    </div>
     <UContainer>
       <!-- Hero / Logo -->
       <header class="mb-10 text-center animate-in fade-in duration-500">

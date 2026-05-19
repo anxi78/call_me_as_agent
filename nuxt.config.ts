@@ -6,6 +6,10 @@ export default defineNuxtConfig({
     enabled: true
   },
 
+  colorMode: {
+    disableTransition: false
+  },
+
   css: ['~/assets/css/main.css'],
 
   ui: {
