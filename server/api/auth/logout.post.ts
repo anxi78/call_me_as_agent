@@ -1,5 +1,9 @@
 import { destroySession } from '../../utils/sessionManager'
 
+export type LogoutResponse = {
+  success: boolean
+}
+
 export default defineEventHandler((event) => {
   const sessionId = getCookie(event, 'auth_session')
   destroySession(sessionId)
@@ -9,5 +13,5 @@ export default defineEventHandler((event) => {
     secure: process.env.NODE_ENV === 'production'
   })
   
-  return { success: true }
+  return { success: true } as LogoutResponse
 })

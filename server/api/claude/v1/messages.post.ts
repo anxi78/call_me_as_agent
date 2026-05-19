@@ -187,6 +187,17 @@ export default defineEventHandler(async (event) => {
             stop_reason: bufferedContent.some(c => c.type === 'tool_use') ? 'tool_use' : 'end_turn',
             stop_sequence: null,
             usage: { input_tokens: promptTokens, output_tokens: completionTokens }
+          } as ClaudeMessagesResponse)
+        }
+      }
+    })
+  }
+})
+      content: bufferedContent,
+            model: body.model || 'claude-3-5-sonnet-20241022',
+            stop_reason: bufferedContent.some(c => c.type === 'tool_use') ? 'tool_use' : 'end_turn',
+            stop_sequence: null,
+            usage: { input_tokens: promptTokens, output_tokens: completionTokens }
           })
         }
       }

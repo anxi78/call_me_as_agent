@@ -1,3 +1,7 @@
+export type RespondResponse = {
+  success: boolean
+}
+
 export default defineEventHandler(async (event) => {
   const { id, response, toolCalls, simulateStream, _manualId } = await readBody(event)
   if (!id) {
@@ -9,7 +13,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     await pushToRequest(id, { content: response || '', toolCalls, simulateStream, _manualId })
-    return { success: true }
+    return { success: true } as RespondResponse
   } catch (error: any) {
     throw createError({
       statusCode: 404,

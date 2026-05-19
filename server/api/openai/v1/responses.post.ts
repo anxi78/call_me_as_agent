@@ -1,3 +1,19 @@
+export type OpenAIResponsesResponse = {
+  id: string
+  object: 'response'
+  created_at: number
+  status: string
+  model: string
+  output: any[]
+  usage: {
+    input_tokens: number
+    output_tokens: number
+    total_tokens: number
+  } | null
+  output_text: string
+  conversation_id: string
+}
+
 export default defineEventHandler(async (event) => {
   const settings = getSettings()
   if (settings.enableApiKeyAuth) {

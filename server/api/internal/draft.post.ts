@@ -1,3 +1,7 @@
+export type DraftResponse = {
+  success: boolean
+}
+
 export default defineEventHandler(async (event) => {
   const { id, draft } = await readBody(event)
   if (!id) {
@@ -8,5 +12,5 @@ export default defineEventHandler(async (event) => {
   }
 
   updateDraft(id, draft)
-  return { success: true }
+  return { success: true } as DraftResponse
 })

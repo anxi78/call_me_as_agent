@@ -178,6 +178,19 @@ export default defineEventHandler(async (event) => {
               finish_reason: bufferedTools.length > 0 ? 'tool_calls' : 'stop'
             }],
             usage: { prompt_tokens: promptTokens, completion_tokens: totalTokens - promptTokens, total_tokens: totalTokens }
+          } as OpenAICompletionResponse)
+        }
+      }
+    })
+  }
+})
+                 }
+                    }))
+                  : undefined
+              },
+              finish_reason: bufferedTools.length > 0 ? 'tool_calls' : 'stop'
+            }],
+            usage: { prompt_tokens: promptTokens, completion_tokens: totalTokens - promptTokens, total_tokens: totalTokens }
           })
         }
       }

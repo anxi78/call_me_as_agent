@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import type { AuthCheckResponse } from '#server/api/auth/check.get'
+import type { OtpSetupResponse } from '#server/api/internal/otp-setup.get'
+import type { SettingsGetResponse } from '#server/api/internal/settings.get'
+
 const isAuthenticated = ref(true)
 const { t } = useI18n()
 
 const checkAuth = async () => {
-  const res: any = await $fetch('/api/auth/check')
+  const res: AuthCheckResponse = await $fetch('/api/auth/check')
   isAuthenticated.value = res.authenticated
 }
 
@@ -30,7 +34,7 @@ const settingsForm = ref({
 })
 
 const isOtpModalOpen = ref(false)
-const otpSetupData = ref<any>(null)
+const otpSetupData = ref<null | OtpSetupResponse>(null)
 const otpVerificationCode = ref('')
 const isVerifyingOtp = ref(false)
 
@@ -45,6 +49,7 @@ const openOtpSetup = async () => {
 
 const verifyAndEnableOtp = async () => {
   if (!otpVerificationCode.value) return
+  if (otpSetupData.value == null) return
   isVerifyingOtp.value = true
   try {
     await $fetch('/api/auth/login', {
@@ -61,7 +66,7 @@ const verifyAndEnableOtp = async () => {
     isOtpModalOpen.value = false
     otpVerificationCode.value = ''
     toast.add({ title: t('otp_enabled_success'), color: 'success' })
-  } catch (e: any) {
+  } catch (e) {
     toast.add({ title: t('invalid_otp'), color: 'error' })
   } finally {
     isVerifyingOtp.value = false
@@ -89,7 +94,9 @@ const onLogoUpload = (e: Event) => {
   }
   reader.readAsDataURL(file)
 }
-const clearLogo = () => { settingsForm.value.siteLogo = '' }
+const clearLogo = () => {
+  settingsForm.value.siteLogo = ''
+}
 
 const isSaving = ref(false)
 const toast = useToast()
@@ -104,7 +111,7 @@ const colors = Object.keys(colorMap)
 
 const loadSettings = async () => {
   try {
-    const res: any = await $fetch('/api/internal/settings')
+    const res: SettingsGetResponse = await $fetch('/api/internal/settings')
     Object.assign(settingsForm.value, res)
   } catch (e) {
     toast.add({ title: t('settings_load_failed'), color: 'error' })
@@ -127,7 +134,11 @@ const saveSettings = async () => {
     if (import.meta.client) {
       const appConfig = useAppConfig()
       appConfig.ui.colors.primary = settingsForm.value.primaryColor
-      setTimeout(() => { window.location.reload() }, 500)
+      setTimeout(
+        () => {
+          window.location.reload()
+        }, 500
+      )
     }
   } catch (e) {
     toast.add({ title: t('settings_failed'), color: 'error' })
@@ -139,50 +150,53 @@ const saveSettings = async () => {
 
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col pb-10 overflow-x-hidden">
-    <!-- Header with fixed max-width container -->
-    <header class="w-full border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-20">
-      <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div class="flex items-center gap-4">
+    <!-- Centered Layout Wrapper -->
+    <div class="w-full flex-1 flex flex-col items-center">
+      <!-- Header -->
+      <header class="w-full border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md sticky top-0 z-20">
+        <div class="max-w-4xl w-full mx-auto px-6 py-4 flex items-center justify-between">
+          <div class="flex items-center gap-4">
+            <UButton
+              icon="i-lucide-arrow-left"
+              variant="ghost"
+              color="neutral"
+              to="/"
+            />
+            <h1 class="font-bold text-xl">
+              {{ t('server_settings') }}
+            </h1>
+          </div>
           <UButton
-            icon="i-lucide-arrow-left"
-            variant="ghost"
-            color="neutral"
-            to="/"
-          />
-          <h1 class="font-bold text-lg">
-            {{ t('server_settings') }}
-          </h1>
+            color="primary"
+            size="lg"
+            :loading="isSaving"
+            @click="saveSettings"
+          >
+            {{ t('save') }}
+          </UButton>
         </div>
-        <UButton
-          color="primary"
-          :loading="isSaving"
-          @click="saveSettings"
-        >
-          {{ t('save') }}
-        </UButton>
-      </div>
-    </header>
+      </header>
 
-    <!-- Content with fixed max-width container -->
-    <main class="w-full flex-1">
-      <div class="max-w-4xl mx-auto px-6 py-8">
+      <!-- Main content restricted to same max-width -->
+      <main class="max-w-4xl w-full px-6 py-8 space-y-8">
         <div
           v-if="!isAuthenticated"
-          class="text-center py-20"
+          class="text-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm"
         >
           <UIcon
             name="i-lucide-lock"
-            class="w-12 h-12 text-gray-400 mx-auto mb-4"
+            class="w-16 h-16 text-gray-300 mx-auto mb-4"
           />
-          <h2 class="text-xl font-bold">
+          <h2 class="text-2xl font-bold">
             {{ t('auth_required') }}
           </h2>
           <p class="text-gray-500 mt-2">
             {{ t('auth_desc') }}
           </p>
           <UButton
-            class="mt-4"
+            class="mt-6"
             to="/agent"
+            size="lg"
           >
             {{ t('admin_dashboard') }}
           </UButton>
@@ -264,10 +278,10 @@ const saveSettings = async () => {
                 :label="t('site_logo')"
                 :description="t('site_logo_desc')"
               >
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-6">
                   <div
                     v-if="settingsForm.siteLogo"
-                    class="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 flex-shrink-0"
+                    class="w-20 h-20 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-inner"
                   >
                     <img
                       :src="settingsForm.siteLogo"
@@ -276,14 +290,14 @@ const saveSettings = async () => {
                   </div>
                   <div
                     v-else
-                    class="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex items-center justify-center text-gray-400 flex-shrink-0"
+                    class="w-20 h-20 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex items-center justify-center text-gray-300"
                   >
                     <UIcon
                       name="i-lucide-image"
-                      class="w-6 h-6"
+                      class="w-10 h-10"
                     />
                   </div>
-                  <div class="flex-1 space-y-2">
+                  <div class="flex-1 space-y-3">
                     <div class="flex items-center gap-2">
                       <UButton
                         size="xs"
@@ -320,13 +334,13 @@ const saveSettings = async () => {
                 :label="t('primary_color')"
                 :description="t('primary_color_desc')"
               >
-                <div class="flex flex-wrap gap-2">
+                <div class="flex flex-wrap gap-2.5">
                   <button
                     v-for="color in colors"
                     :key="color"
-                    class="w-8 h-8 rounded-full border-2 transition-all active:scale-95 flex-shrink-0"
+                    class="w-10 h-10 rounded-full border-2 transition-all active:scale-90"
                     :style="{ backgroundColor: colorMap[color] }"
-                    :class="[settingsForm.primaryColor === color ? 'border-black dark:border-white scale-110 shadow-md ring-2 ring-primary-500/20' : 'border-transparent opacity-80 hover:opacity-100']"
+                    :class="[settingsForm.primaryColor === color ? 'border-black dark:border-white scale-110 shadow-lg ring-4 ring-primary-500/10' : 'border-transparent opacity-80 hover:opacity-100']"
                     @click="settingsForm.primaryColor = color"
                   />
                 </div>
@@ -355,11 +369,11 @@ const saveSettings = async () => {
                 <UInput
                   v-model="settingsForm.publicBaseUrl"
                   placeholder="http://localhost:3000"
-                  class="w-full max-w-md"
+                  class="w-full max-w-xl"
                 />
               </UFormField>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-gray-100 dark:border-gray-800">
-                <div class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <div class="space-y-6">
                   <UFormField
                     :label="t('pending_requests_label')"
                     :description="t('pending_requests_label_desc')"
@@ -389,21 +403,24 @@ const saveSettings = async () => {
                   </UFormField>
                 </div>
                 <div class="space-y-4 pt-2">
-                  <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800">
-                    <div class="flex flex-col">
-                      <span class="text-sm font-medium">{{ t('show_pending_count') }}</span><span class="text-[10px] text-gray-500">{{ t('show_pending_count_desc') }}</span>
+                  <div class="flex items-center justify-between p-4 rounded-2xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <div class="flex flex-col pr-4">
+                      <span class="text-sm font-bold">{{ t('show_pending_count') }}</span>
+                      <span class="text-[10px] text-gray-400 mt-0.5 leading-tight">{{ t('show_pending_count_desc') }}</span>
                     </div>
                     <USwitch v-model="settingsForm.showPendingCountPublic" />
                   </div>
-                  <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800">
-                    <div class="flex flex-col">
-                      <span class="text-sm font-medium">{{ t('show_api_key_hints') }}</span><span class="text-[10px] text-gray-500">{{ t('show_api_key_hints_desc') }}</span>
+                  <div class="flex items-center justify-between p-4 rounded-2xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <div class="flex flex-col pr-4">
+                      <span class="text-sm font-bold">{{ t('show_api_key_hints') }}</span>
+                      <span class="text-[10px] text-gray-400 mt-0.5 leading-tight">{{ t('show_api_key_hints_desc') }}</span>
                     </div>
                     <USwitch v-model="settingsForm.showApiKeyPublic" />
                   </div>
-                  <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800">
-                    <div class="flex flex-col">
-                      <span class="text-sm font-medium">{{ t('show_tokens_public') }}</span><span class="text-[10px] text-gray-500">{{ t('show_tokens_public_desc') }}</span>
+                  <div class="flex items-center justify-between p-4 rounded-2xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <div class="flex flex-col pr-4">
+                      <span class="text-sm font-bold">{{ t('show_tokens_public') }}</span>
+                      <span class="text-[10px] text-gray-400 mt-0.5 leading-tight">{{ t('show_tokens_public_desc') }}</span>
                     </div>
                     <USwitch v-model="settingsForm.showTokensPublic" />
                   </div>
@@ -442,27 +459,29 @@ const saveSettings = async () => {
                   type="password"
                   icon="i-lucide-key"
                   placeholder="sk-human-agent"
-                  class="max-w-md"
+                  class="max-w-xl"
                 />
               </UFormField>
-              <div class="pt-6 border-t border-gray-100 dark:border-gray-800 space-y-6">
-                <div class="flex items-center justify-between">
-                  <div>
+
+              <div class="pt-6 border-t border-gray-100 dark:border-gray-800 space-y-4">
+                <div class="flex items-center justify-between p-4 rounded-2xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 shadow-sm">
+                  <div class="space-y-1">
                     <h3 class="text-sm font-bold">
                       {{ t('password_auth') }}
                     </h3>
-                    <p class="text-xs text-gray-500">
+                    <p class="text-xs text-gray-400">
                       {{ t('enable_password_desc') }}
                     </p>
                   </div>
                   <USwitch v-model="settingsForm.enablePasswordAuth" />
                 </div>
-                <div class="flex items-center justify-between">
-                  <div>
+
+                <div class="flex items-center justify-between p-4 rounded-xl bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 shadow-sm">
+                  <div class="space-y-1 pr-4">
                     <h3 class="text-sm font-bold">
                       {{ t('otp_auth') }}
                     </h3>
-                    <p class="text-xs text-gray-500">
+                    <p class="text-xs text-gray-400">
                       {{ t('enable_otp_desc') }}
                     </p>
                   </div>
@@ -471,6 +490,8 @@ const saveSettings = async () => {
                       v-if="settingsForm.enableOtpAuth"
                       color="success"
                       variant="subtle"
+                      size="sm"
+                      class="px-2.5 font-bold uppercase tracking-tighter"
                     >
                       {{ t('enabled') }}
                     </UBadge>
@@ -478,6 +499,7 @@ const saveSettings = async () => {
                       v-if="!settingsForm.enableOtpAuth"
                       size="sm"
                       color="primary"
+                      class="px-5 font-bold"
                       @click="openOtpSetup"
                     >
                       {{ t('otp_setup_title') }}
@@ -487,6 +509,7 @@ const saveSettings = async () => {
                       size="sm"
                       color="error"
                       variant="soft"
+                      class="px-5 font-bold"
                       @click="disableOtp"
                     >
                       {{ t('disable') }}
@@ -497,6 +520,7 @@ const saveSettings = async () => {
             </div>
           </UCard>
 
+          <!-- Footer -->
           <footer class="flex flex-col items-center gap-4 pt-4 pb-12 border-t border-gray-100 dark:border-gray-800 text-gray-400">
             <div class="flex items-center gap-4">
               <UButton
@@ -509,90 +533,88 @@ const saveSettings = async () => {
                 target="_blank"
               />
               <span class="text-xs opacity-50">|</span>
-              <span class="text-xs text-center">{{ t('released_under') }}</span>
+              <span class="text-xs text-center leading-loose">{{ t('released_under') }}</span>
             </div>
           </footer>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
 
-    <!-- OTP Setup Modal -->
+    <!-- Modal (ClientOnly) -->
     <ClientOnly>
-      <UModal v-model:open="isOtpModalOpen">
-        <template #content>
-          <div class="flex items-center justify-center p-4">
-            <UCard class="w-full sm:max-w-md shadow-2xl">
-              <template #header>
-                <div class="flex items-center justify-between">
-                  <h3 class="text-base font-bold">
-                    {{ t('otp_setup_title') }}
-                  </h3>
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    icon="i-lucide-x"
-                    @click="isOtpModalOpen = false"
-                  />
+      <UModal
+        v-if="isOtpModalOpen"
+        v-model:open="isOtpModalOpen"
+      >
+        <template #header>
+          <div class="w-full flex items-center justify-between">
+            <h3 class="text-lg font-black">
+              {{ t('otp_setup_title') }}
+            </h3>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-x"
+              class="rounded-full"
+              @click="isOtpModalOpen = false"
+            />
+          </div>
+        </template>
+        <template #body>
+          <div class="space-y-8 py-2">
+            <div class="p-4 rounded-2xl bg-primary-50 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 text-sm leading-relaxed border border-primary-100 dark:border-primary-900/50">
+              {{ t('otp_setup_step1') }}
+            </div>
+            <div class="space-y-6">
+              <p class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] text-center">
+                {{ t('otp_setup_step2') }}
+              </p>
+              <div class="flex flex-col items-center gap-6">
+                <div class="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm ring-8 ring-gray-50 dark:ring-gray-900/50">
+                  <img
+                    v-if="otpSetupData?.qrCodeDataUrl"
+                    :src="otpSetupData.qrCodeDataUrl"
+                    class="w-56 h-56"
+                    alt="OTP QR Code"
+                  >
                 </div>
-              </template>
-              <div class="space-y-6 py-2">
-                <div class="p-3 rounded-lg bg-primary-50 dark:bg-primary-950/30 text-primary-700 dark:text-primary-300 text-xs leading-relaxed">
-                  {{ t('otp_setup_step1') }}
-                </div>
-                <div class="space-y-4">
-                  <p class="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                    {{ t('otp_setup_step2') }}
-                  </p>
-                  <div class="flex justify-center py-2">
-                    <div class="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm ring-4 ring-gray-50 dark:ring-gray-900">
-                      <img
-                        v-if="otpSetupData?.qrCodeDataUrl"
-                        :src="otpSetupData.qrCodeDataUrl"
-                        class="w-40 h-40"
-                        alt="OTP QR Code"
-                      >
-                    </div>
-                  </div>
-                  <div class="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-800 space-y-2">
-                    <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest block">{{ t('otp_secret_label') }}</label>
-                    <code class="text-xs font-mono block text-primary-600 dark:text-primary-400 select-all break-all leading-tight">{{ otpSetupData?.secret }}</code>
-                  </div>
-                </div>
-                <div class="space-y-4 pt-6 border-t border-gray-100 dark:border-gray-800">
-                  <p class="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                    {{ t('otp_setup_step3') }}
-                  </p>
-                  <UInput
-                    v-model="otpVerificationCode"
-                    placeholder="······"
-                    class="w-full text-center text-3xl font-black tracking-[0.5em] py-3"
-                    maxlength="6"
-                    @keyup.enter="verifyAndEnableOtp"
-                  />
+                <div class="w-full bg-gray-50 dark:bg-gray-900 p-5 rounded-2xl border border-gray-100 dark:border-gray-800 space-y-3">
+                  <label class="text-[9px] font-black text-gray-400 uppercase tracking-widest block text-center">{{ t('otp_secret_label') }}</label>
+                  <code class="text-sm font-mono block text-center text-primary-600 dark:text-primary-400 select-all break-all leading-relaxed">{{ otpSetupData?.secret }}</code>
                 </div>
               </div>
-              <template #footer>
-                <div class="flex gap-3">
-                  <UButton
-                    variant="ghost"
-                    color="neutral"
-                    class="flex-1"
-                    @click="isOtpModalOpen = false"
-                  >
-                    {{ t('cancel') }}
-                  </UButton>
-                  <UButton
-                    color="primary"
-                    class="flex-[2] font-bold"
-                    :loading="isVerifyingOtp"
-                    :disabled="!otpVerificationCode"
-                    @click="verifyAndEnableOtp"
-                  >
-                    {{ t('verify_and_enable') }}
-                  </UButton>
-                </div>
-              </template>
-            </UCard>
+            </div>
+            <div class="space-y-4 pt-6 border-t border-gray-100 dark:border-gray-800">
+              <p class="text-xs font-black text-gray-400 uppercase tracking-[0.2em] text-center">
+                {{ t('otp_setup_step3') }}
+              </p>
+              <UInput
+                v-model="otpVerificationCode"
+                placeholder="······"
+                class="w-full text-center text-4xl font-black tracking-[0.5em] py-3"
+                maxlength="6"
+                @keyup.enter="verifyAndEnableOtp"
+              />
+            </div>
+          </div>
+        </template>
+        <template #footer>
+          <div class="w-full items-center justify-between">
+            <UButton
+              variant="ghost"
+              color="neutral"
+              @click="isOtpModalOpen = false"
+            >
+              {{ t('cancel') }}
+            </UButton>
+            <UButton
+              color="primary"
+              :loading="isVerifyingOtp"
+              :disabled="!otpVerificationCode"
+              @click="verifyAndEnableOtp"
+            >
+              {{ t('verify_and_enable') }}
+            </UButton>
           </div>
         </template>
       </UModal>

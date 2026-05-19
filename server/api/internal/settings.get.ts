@@ -1,3 +1,7 @@
+import { getSettings, type AppSettings } from '../../utils/settingsManager'
+
+export type SettingsGetResponse = AppSettings
+
 export default defineEventHandler((_event) => {
-  return getSettings()
+  return getSettings() as SettingsGetResponse
 })

@@ -2,6 +2,12 @@ import { generateSecret, generateURI } from 'otplib'
 import QRCode from 'qrcode'
 import { verifySession } from '../../utils/sessionManager'
 
+export type OtpSetupResponse = {
+  secret: string
+  qrCodeDataUrl: string
+  otpauth: string
+}
+
 export default defineEventHandler(async (event) => {
   // Authentication Check
   const sessionId = getCookie(event, 'auth_session')
@@ -33,5 +39,5 @@ export default defineEventHandler(async (event) => {
     secret,
     qrCodeDataUrl,
     otpauth
-  }
+  } as OtpSetupResponse
 })
