@@ -31,6 +31,7 @@ const settingsForm = ref({
   showTokensPublic: true,
   tokensLabel: '',
   toastTimeout: 3000,
+  shutdownMessage: '',
   useHeaderForIp: true,
   ipHeaderName: 'x-forwarded-for'
 })
@@ -401,6 +402,16 @@ const saveSettings = async () => {
                     <UInput
                       v-model="settingsForm.toastTimeout"
                       type="number"
+                    />
+                  </UFormField>
+                  <UFormField
+                    :label="t('shutdown_message')"
+                    :description="t('shutdown_message_desc')"
+                  >
+                    <UTextarea
+                      v-model="settingsForm.shutdownMessage"
+                      :rows="3"
+                      autoresize
                     />
                   </UFormField>
                 </div>

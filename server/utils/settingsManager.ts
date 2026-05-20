@@ -26,6 +26,7 @@ export interface AppSettings {
   toastTimeout: number
   useHeaderForIp: boolean
   ipHeaderName: string
+  shutdownMessage: string
 }
 
 const defaultSettings: AppSettings = {
@@ -49,7 +50,8 @@ const defaultSettings: AppSettings = {
   tokensLabel: '',
   toastTimeout: 3000,
   useHeaderForIp: true,
-  ipHeaderName: 'x-forwarded-for'
+  ipHeaderName: 'x-forwarded-for',
+  shutdownMessage: '\n\n[Server Shutdown] The proxy server is closing. Please retry your request if needed.'
 }
 
 const settingsPath = path.resolve(process.cwd(), '.data', 'settings.json')

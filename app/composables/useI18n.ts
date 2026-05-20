@@ -117,7 +117,9 @@ const translations = {
     use_header_for_ip: '使用 Header 识别 IP',
     use_header_for_ip_desc: '从特定的 HTTP 请求头中获取客户端 IP（在使用 Nginx、Cloudflare 等反向代理时很有用）。',
     ip_header_name: 'IP Header 名称',
-    ip_header_name_desc: '包含客户端 IP 的 HTTP Header 名称（如：x-forwarded-for, cf-connecting-ip）。'
+    ip_header_name_desc: '包含客户端 IP 的 HTTP Header 名称（如：x-forwarded-for, cf-connecting-ip）。',
+    shutdown_message: '服务关闭通知内容',
+    shutdown_message_desc: '当服务器关闭时，发送给所有连接中客户端的终止消息内容。'
   },
   en: {
     // General
@@ -235,7 +237,9 @@ const translations = {
     use_header_for_ip: 'Use Header for IP',
     use_header_for_ip_desc: 'Determine client IP from a specific HTTP header (useful behind reverse proxies like Nginx/Cloudflare).',
     ip_header_name: 'IP Header Name',
-    ip_header_name_desc: 'The HTTP header containing the client IP (e.g., x-forwarded-for, cf-connecting-ip).'
+    ip_header_name_desc: 'The HTTP header containing the client IP (e.g., x-forwarded-for, cf-connecting-ip).',
+    shutdown_message: 'Shutdown Notification Message',
+    shutdown_message_desc: 'The message sent to all connected clients when the server is closing.'
   }
 }
 
