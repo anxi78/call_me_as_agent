@@ -1,10 +1,10 @@
 <script setup lang="ts">
-const { data: requests } = useFetch<Record<string, unknown>[]>('/api/internal/requests')
+const { data: requestsCountData } = useFetch<{ count: number }>('/api/requests-count')
 const { data: settings } = useFetch<Record<string, unknown>>('/api/settings')
 const { data: authStatus } = useFetch<Record<string, unknown>>('/api/auth/check')
 const { t } = useI18n()
 
-const pendingCount = computed(() => requests.value?.length || 0)
+const pendingCount = computed(() => requestsCountData.value?.count || 0)
 
 const copyToClipboard = (text: string) => {
   navigator.clipboard.writeText(text)
@@ -12,7 +12,7 @@ const copyToClipboard = (text: string) => {
 }
 
 const statusItems = computed(() => {
-  const items: { label: string; value: string | number; icon: string; color: string }[] = []
+  const items: { label: string, value: string | number, icon: string, color: string }[] = []
   if (settings.value?.showPendingCountPublic) {
     items.push({
       label: (settings.value?.pendingRequestsLabel as string) || t('pending_requests'),

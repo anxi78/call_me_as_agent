@@ -555,15 +555,24 @@ const availableTools = computed(() => {
       class="flex flex-1 overflow-hidden relative"
     >
       <!-- Overlay for mobile sidebar -->
-      <div
-        v-if="isSidebarOpen"
-        class="fixed inset-0 bg-black/50 z-40 lg:hidden"
-        @click="isSidebarOpen = false"
-      />
+      <transition
+        enter-active-class="transition-opacity duration-300 ease-in-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-opacity duration-300 ease-in-out"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="isSidebarOpen"
+          class="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          @click="isSidebarOpen = false"
+        />
+      </transition>
 
       <!-- Sidebar -->
       <aside
-        class="absolute inset-y-0 left-0 w-80 lg:relative lg:translate-x-0 transition-transform duration-300 z-50 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900"
+        class="absolute inset-y-0 left-0 w-80 lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900"
         :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'"
       >
         <div class="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-gray-900 sticky top-0 z-10">
