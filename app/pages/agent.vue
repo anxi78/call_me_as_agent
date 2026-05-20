@@ -366,19 +366,12 @@ const getMessages = (payload: Record<string, any>, reqId: string) => {
     return cObj?.text || cObj?.output || cObj?.arguments || JSON.stringify(cObj)
   }
 
-  if (payload.messages) {
-    messages = [...payload.messages]
-    if (payload.system) {
-      if (typeof payload.system === 'string') {
-        messages.unshift({ role: 'system', content: payload.system })
-      } else if (Array.isArray(payload.system)) {
-        messages.unshift({ role: 'system', content: payload.system })
-      }
-    }
-  } else if (payload.input || payload.instructions) {
-    if (payload.instructions) {
-      messages.push({ role: 'system', content: payload.instructions })
-    }
+  // 1. Instructions & Input (Common in openai-responses)
+  if (payload.instructions) {
+    messages.push({ role: 'system', content: payload.instructions })
+  }
+
+  if (payload.input) {
     if (typeof payload.input === 'string') {
       messages.push({ role: 'user', content: payload.input })
     } else if (Array.isArray(payload.input)) {
@@ -396,6 +389,21 @@ const getMessages = (payload: Record<string, any>, reqId: string) => {
     }
   }
 
+  // 2. Standard messages (Chat Completions / Claude / Manual replies)
+  if (payload.messages) {
+    payload.messages.forEach((m: any) => {
+      messages.push(m)
+    })
+    if (payload.system) {
+      if (typeof payload.system === 'string') {
+        messages.unshift({ role: 'system', content: payload.system })
+      } else if (Array.isArray(payload.system)) {
+        messages.unshift({ role: 'system', content: payload.system })
+      }
+    }
+  }
+
+  // 3. Local sent history (not yet reflected in payload.messages)
   if (reqId && sentHistory.value[reqId]) {
     const existingIds = new Set(messages.filter(m => m._is_manual).map(m => m._manualId))
     sentHistory.value[reqId].forEach((sm) => {

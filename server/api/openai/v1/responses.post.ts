@@ -30,7 +30,6 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   console.log('[OpenAI Responses] Received request:', body)
 
-  const requestId = Math.random().toString(36).substring(2, 15)
   const now = Math.floor(Date.now() / 1000)
 
   // Token counting
@@ -40,6 +39,7 @@ export default defineEventHandler(async (event) => {
   promptTokens = estimateTokens(body.input || body.instructions)
 
   const request = await addRequest('openai-responses', body)
+  const requestId = request.id // Use the stable ID from request manager
 
   if (body.stream) {
     setResponseHeaders(event, {
@@ -81,9 +81,12 @@ export default defineEventHandler(async (event) => {
     // Setup keep-alive
     const keepAliveTimer = setInterval(() => {
       if (!event.node.res.writableEnded) {
+        // 1. Send comment (standard)
         event.node.res.write(': keep-alive\n\n')
+        // 2. Send active event to keep client/proxy active
+        emit('response.in_progress', { response: buildBaseResponse('in_progress') })
       }
-    }, (settings.keepAliveInterval || 15) * 1000)
+    }, (settings.keepAliveInterval || 10) * 1000)
 
     let outputIndex = 0
     let totalAssistantText = ''
@@ -246,7 +249,7 @@ export default defineEventHandler(async (event) => {
 
       event.node.req.on('close', () => {
         clearInterval(keepAliveTimer)
-        finishRequest(request.id)
+        // DO NOT delete request from manager on disconnect to support retries
         resolve()
       })
     })

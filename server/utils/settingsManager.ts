@@ -42,7 +42,7 @@ const defaultSettings: AppSettings = {
   language: 'zh',
   pendingRequestsLabel: '',
   streamSpeed: 30,
-  keepAliveInterval: 15,
+  keepAliveInterval: 10,
   showPendingCountPublic: true,
   showApiKeyPublic: true,
   showTokensPublic: true,

@@ -1,3 +1,5 @@
+import crypto from 'node:crypto'
+
 export interface ToolCall {
   id: string
   type: 'function'
@@ -35,6 +37,7 @@ export interface PendingRequest {
   type: 'openai' | 'claude' | 'openai-responses'
   payload: ApiPayload
   timestamp: number
+  lastActive: number
   draft?: {
     response: string
     toolCalls: ToolCall[]
@@ -47,14 +50,43 @@ export interface PendingRequest {
 
 const pendingRequests = new Map<string, PendingRequest>()
 
+// Cleanup old requests (older than 1 hour) every 10 minutes
+setInterval(() => {
+  const now = Date.now()
+  for (const [id, req] of pendingRequests.entries()) {
+    if (now - req.lastActive > 3600000) {
+      pendingRequests.delete(id)
+      console.log(`[RequestManager] Cleaned up stale request: ${id}`)
+    }
+  }
+}, 600000)
+
 export const addRequest = (type: 'openai' | 'claude' | 'openai-responses', payload: ApiPayload): Promise<PendingRequest> => {
   return new Promise((resolve) => {
-    const id = Math.random().toString(36).substring(2, 15)
+    // Generate a stable ID based on payload to handle retries
+    const hashContent = JSON.stringify({
+      type,
+      messages: payload.messages,
+      input: payload.input,
+      instructions: payload.instructions,
+      model: payload.model
+    })
+    const id = crypto.createHash('md5').update(hashContent).digest('hex').substring(0, 15)
+    
+    const existing = pendingRequests.get(id)
+    if (existing) {
+      console.log(`[RequestManager] Re-using existing request: ${id} (Type: ${type})`)
+      existing.lastActive = Date.now()
+      resolve(existing)
+      return
+    }
+
     const request: PendingRequest = {
       id,
       type,
       payload,
       timestamp: Date.now(),
+      lastActive: Date.now(),
       onData: async () => {}, // Will be set by the handler
       queue: Promise.resolve()
     }
@@ -78,12 +110,14 @@ export const updateDraft = (id: string, draft: PendingRequest['draft']) => {
   const request = pendingRequests.get(id)
   if (!request) return
   request.draft = draft
+  request.lastActive = Date.now()
 }
 
 export const pushToRequest = (id: string, chunk: Omit<RequestChunk, 'isFinal'>): Promise<void> => {
   const request = pendingRequests.get(id)
   if (!request) throw new Error(`Request ${id} not found`)
 
+  request.lastActive = Date.now()
   // Clear draft when sending
   request.draft = undefined
 
@@ -133,6 +167,7 @@ export const finishRequest = (id: string, chunk?: Omit<RequestChunk, 'isFinal'>)
   const request = pendingRequests.get(id)
   if (!request) throw new Error(`Request ${id} not found`)
 
+  request.lastActive = Date.now()
   // Also update payload on finish if chunk is provided
   if (chunk && (chunk.content || (chunk.toolCalls && chunk.toolCalls.length > 0))) {
     if (!request.payload.messages) request.payload.messages = []
@@ -169,8 +204,9 @@ export const finishRequest = (id: string, chunk?: Omit<RequestChunk, 'isFinal'>)
   const promise = request.queue.then(async () => {
     await request.onData({ ...chunk, isFinal: true })
     pendingRequests.delete(id)
-    console.log(`[RequestManager] Finished request: ${id}`)
+    console.log(`[RequestManager] Finished and deleted request: ${id}`)
   })
   request.queue = promise
   return promise
 }
+

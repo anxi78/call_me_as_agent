@@ -39,7 +39,6 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   console.log('[OpenAI] Received request:', body)
 
-  const requestId = Math.random().toString(36).substring(2, 15)
   const now = Math.floor(Date.now() / 1000)
 
   // Token counting state
@@ -50,6 +49,7 @@ export default defineEventHandler(async (event) => {
   promptTokens = estimateTokens(body.messages)
 
   const request = await addRequest('openai', body)
+  const requestId = request.id
 
   if (body.stream) {
     setResponseHeaders(event, {
@@ -163,7 +163,7 @@ export default defineEventHandler(async (event) => {
 
       event.node.req.on('close', () => {
         clearInterval(keepAliveTimer)
-        finishRequest(request.id) // Cleanup on disconnect
+        // DO NOT delete request from manager on disconnect to support retries
         resolve()
       })
     })

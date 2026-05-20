@@ -33,8 +33,6 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   console.log('[Claude] Received request:', body)
 
-  const requestId = Math.random().toString(36).substring(2, 15)
-
   // Token counting
   let promptTokens = 0
   let completionTokens = 0
@@ -42,6 +40,7 @@ export default defineEventHandler(async (event) => {
   promptTokens = estimateTokens(body.messages || body.system)
 
   const request = await addRequest('claude', body)
+  const requestId = request.id
 
   if (body.stream) {
     setResponseHeaders(event, {
@@ -166,7 +165,7 @@ export default defineEventHandler(async (event) => {
 
       event.node.req.on('close', () => {
         clearInterval(keepAliveTimer)
-        finishRequest(request.id)
+        // DO NOT delete request from manager on disconnect to support retries
         resolve()
       })
     })
