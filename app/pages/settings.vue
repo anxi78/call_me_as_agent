@@ -132,7 +132,7 @@ const saveSettings = async () => {
       method: 'POST',
       body: settingsForm.value
     })
-    toast.add({ title: t('settings_saved'), color: 'success' })
+    toast.add({ title: t('settings_saved'), color: 'success', duration: settingsForm.value.toastTimeout })
     if (import.meta.client) {
       const appConfig = useAppConfig()
       appConfig.ui.colors.primary = settingsForm.value.primaryColor

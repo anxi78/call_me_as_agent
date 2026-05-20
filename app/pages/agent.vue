@@ -183,7 +183,7 @@ onUnmounted(() => {
 
 const copyToClipboard = (text: string) => {
   navigator.clipboard.writeText(text)
-  toast.add({ title: t('copied'), color: 'success' })
+  toast.add({ title: t('copied'), color: 'success', duration: settings.value?.toastTimeout ? Number(settings.value.toastTimeout) : 3000 })
 }
 
 const addToolCall = (requestId: string, tool?: Record<string, unknown>) => {

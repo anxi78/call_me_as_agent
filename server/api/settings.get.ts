@@ -16,6 +16,7 @@ export type PublicSettingsResponse = Pick<AppSettings,
   | 'enableApiKeyAuth'
   | 'showTokensPublic'
   | 'tokensLabel'
+  | 'toastTimeout'
 > & {
   tokensInputToday: number
   tokensOutputToday: number
@@ -40,6 +41,7 @@ export default defineEventHandler((_event) => {
     enableApiKeyAuth: settings.enableApiKeyAuth,
     showTokensPublic: settings.showTokensPublic,
     tokensLabel: settings.tokensLabel,
+    toastTimeout: settings.toastTimeout,
     tokensInputToday: stats.tokensInputToday,
     tokensOutputToday: stats.tokensOutputToday
     // Do NOT return the actual apiKey here
