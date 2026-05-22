@@ -79,7 +79,72 @@ async function runTests() {
   }
   console.log('✓ OpenAI Responses (Streaming) passed. Usage:', usage)
 
-  // 3. Claude (Streaming)
+  // 3. OpenAI Chat Completions (Non-streaming)
+  console.log('Testing OpenAI Chat Completions (Non-streaming)...')
+  const respChat1Promise = fetch(`${BASE_URL}/api/openai/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: 'Hello' }],
+      stream: false
+    })
+  })
+
+  await simulateHuman('Chat Non-streaming response')
+  const respChat1 = await (await respChat1Promise).json()
+  if (respChat1.choices[0].message.content !== 'Chat Non-streaming response' || !respChat1.usage) {
+    throw new Error('OpenAI Chat Completions (Non-streaming) failed: ' + JSON.stringify(respChat1))
+  }
+  console.log('✓ OpenAI Chat Completions (Non-streaming) passed. Usage:', respChat1.usage)
+
+  // 4. OpenAI Chat Completions (Streaming)
+  console.log('Testing OpenAI Chat Completions (Streaming)...')
+  const respChat2 = await fetch(`${BASE_URL}/api/openai/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: 'Hello' }],
+      stream: true,
+      stream_options: { include_usage: true }
+    })
+  })
+
+  setTimeout(() => simulateHuman('Chat streaming hi!'), 500)
+  const readerChat = respChat2.body?.getReader()
+  let chatUsage: any = null
+  let receivedChatDone = false
+  if (readerChat) {
+    const decoder = new TextDecoder()
+    while (true) {
+      const { done, value } = await readerChat.read()
+      if (done) break
+      const chunk = decoder.decode(value)
+      const lines = chunk.split('\n')
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const dataStr = line.substring(6).trim()
+          if (dataStr === '[DONE]') {
+            receivedChatDone = true
+            continue
+          }
+          try {
+            const data = JSON.parse(dataStr)
+            if (data.usage) {
+              chatUsage = data.usage
+            }
+          } catch (e) {}
+        }
+      }
+    }
+  }
+  if (!receivedChatDone || !chatUsage) {
+    throw new Error('OpenAI Chat Completions (Streaming) failed')
+  }
+  console.log('✓ OpenAI Chat Completions (Streaming) passed. Usage:', chatUsage)
+
+  // 5. Claude (Streaming)
   console.log('Testing Claude (Streaming)...')
   const resp3 = await fetch(`${BASE_URL}/api/claude/v1/messages`, {
     method: 'POST',
