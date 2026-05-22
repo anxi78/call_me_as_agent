@@ -11,11 +11,9 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "@ant-design-vue/nuxt": "1.4.6",
     "@iconify-json/lucide": "^1.2.106",
     "@iconify-json/simple-icons": "^1.2.81",
     "@nuxt/ui": "^4.7.1",
-    "ant-design-vue": "^4.2.6",
     "nuxt": "^4.4.5",
     "otplib": "^13.4.0",
     "qrcode": "^1.5.4",

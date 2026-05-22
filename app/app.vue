@@ -1,26 +1,28 @@
 <script setup>
 const { data: settings } = await useFetch('/api/settings')
 
-useHead(() => ({
+const siteTitle = settings.value?.siteTitle || 'LLM Human Agent'
+const siteSubtitle = settings.value?.siteSubtitle || 'A human-in-the-loop server for OpenAI and Claude compatible calls.'
+const siteLogo = settings.value?.siteLogo || '/favicon.ico'
+const siteLang = settings.value?.language || 'en'
+
+useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
   link: [
-    { rel: 'icon', href: settings.value?.siteLogo || '/favicon.ico' }
+    { rel: 'icon', href: siteLogo }
   ],
   htmlAttrs: {
-    lang: settings.value?.language || 'en'
+    lang: siteLang
   }
-}))
-
-const title = computed(() => settings.value?.siteTitle || 'LLM Human Agent')
-const description = computed(() => settings.value?.siteSubtitle || 'A human-in-the-loop server for OpenAI and Claude compatible calls.')
+})
 
 useSeoMeta({
-  title,
-  description,
-  ogTitle: title,
-  ogDescription: description
+  title: siteTitle,
+  description: siteSubtitle,
+  ogTitle: siteTitle,
+  ogDescription: siteSubtitle
 })
 </script>
 

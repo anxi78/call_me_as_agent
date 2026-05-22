@@ -1,14 +1,28 @@
 <script setup lang="ts">
-const { data: requestsCountData } = useFetch<{ count: number }>('/api/requests-count')
+const { data: requestsCountData, refresh: refreshCount } = useFetch<{ count: number }>('/api/requests-count')
 const { data: settings } = useFetch<Record<string, unknown>>('/api/settings')
 const { data: authStatus } = useFetch<Record<string, unknown>>('/api/auth/check')
 const { t } = useI18n()
 
+let timer: ReturnType<typeof setInterval>
+onMounted(() => {
+  timer = setInterval(() => {
+    refreshCount()
+  }, 5000)
+})
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
+
 const pendingCount = computed(() => requestsCountData.value?.count || 0)
 
-const copyToClipboard = (text: string) => {
-  navigator.clipboard.writeText(text)
-  useToast().add({ title: t('copied'), color: 'success' })
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    useToast().add({ title: t('copied'), color: 'success' })
+  } catch (err) {
+    useToast().add({ title: 'Copy failed', color: 'error' })
+  }
 }
 
 const statusItems = computed(() => {

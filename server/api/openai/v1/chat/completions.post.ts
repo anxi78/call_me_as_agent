@@ -139,17 +139,32 @@ export default defineEventHandler(async (event) => {
 
         if (chunk.isFinal) {
           clearInterval(keepAliveTimer)
-          const lastChunk: Record<string, unknown> = {
+          
+          const lastChunk = {
             id: `chatcmpl-${requestId}`,
             object: 'chat.completion.chunk',
             created: now,
             model: body.model || 'gpt-4o',
             choices: [{ index: 0, delta: {}, finish_reason: (chunk.toolCalls && chunk.toolCalls.length > 0) ? 'tool_calls' : 'stop' }]
           }
+          
           if (body.stream_options?.include_usage) {
-            lastChunk.usage = { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens }
+            (lastChunk as any).usage = null
           }
           sendChunk(lastChunk)
+
+          if (body.stream_options?.include_usage) {
+            const usageChunk = {
+              id: `chatcmpl-${requestId}`,
+              object: 'chat.completion.chunk',
+              created: now,
+              model: body.model || 'gpt-4o',
+              choices: [],
+              usage: { prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: promptTokens + completionTokens }
+            }
+            sendChunk(usageChunk)
+          }
+
           event.node.res.write('data: [DONE]\n\n')
 
           import('../../../../utils/statsManager').then(({ incrementTokens }) => {
