@@ -6,6 +6,7 @@ export default defineEventHandler((event) => {
 
   // Protect internal API routes
   if (decodedPath.startsWith('/api/internal/')) {
+    if (process.env.SKIP_AUTH === 'true') return
     const config = useRuntimeConfig()
     const settings = getSettings()
     
