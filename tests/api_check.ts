@@ -144,7 +144,26 @@ async function runTests() {
   }
   console.log('✓ OpenAI Chat Completions (Streaming) passed. Usage:', chatUsage)
 
-  // 5. Claude (Streaming)
+  // 5. Claude (Non-streaming)
+  console.log('Testing Claude (Non-streaming)...')
+  const respClaude1Promise = fetch(`${BASE_URL}/api/claude/v1/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-3-sonnet',
+      messages: [{ role: 'user', content: 'Hello Claude' }],
+      stream: false
+    })
+  })
+
+  await simulateHuman('Claude Non-streaming response')
+  const respClaude1 = await (await respClaude1Promise).json()
+  if (respClaude1.content[0].text !== 'Claude Non-streaming response' || !respClaude1.usage) {
+    throw new Error('Claude (Non-streaming) failed: ' + JSON.stringify(respClaude1))
+  }
+  console.log('✓ Claude (Non-streaming) passed. Usage:', respClaude1.usage)
+
+  // 6. Claude (Streaming)
   console.log('Testing Claude (Streaming)...')
   const resp3 = await fetch(`${BASE_URL}/api/claude/v1/messages`, {
     method: 'POST',
