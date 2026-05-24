@@ -9,7 +9,7 @@
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
     "typecheck": "nuxt typecheck",
-    "test": "tsx tests/api_check.ts"
+    "test": "tsx tests/api_check.ts && tsx tests/disconnect_check.ts"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.106",
