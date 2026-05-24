@@ -36,8 +36,13 @@ const simulateStream = ref<Record<string, boolean>>({})
 const sentHistory = ref<Record<string, Record<string, unknown>[]>>({})
 const submitting = ref<Record<string, boolean>>({})
 const finishing = ref<Record<string, boolean>>({})
+const isLargeScreen = ref(false)
 const { t } = useI18n()
 const toast = useToast()
+
+const updateScreenSize = () => {
+  isLargeScreen.value = window.innerWidth >= 1024
+}
 
 // Multi-device sync: Sync drafts
 const syncDraft = async (id: string) => {
@@ -160,6 +165,8 @@ const scrollToBottom = async () => {
 
 onMounted(() => {
   checkAuth()
+  updateScreenSize()
+  window.addEventListener('resize', updateScreenSize)
   pollInterval.value = setInterval(() => {
     if (isAuthenticated.value) refresh()
   }, 2000)
@@ -167,7 +174,7 @@ onMounted(() => {
 
 const selectRequest = (id: string) => {
   activeRequestId.value = id
-  if (window.innerWidth < 1024) {
+  if (!isLargeScreen.value) {
     isSidebarOpen.value = false
   }
 }
@@ -179,6 +186,7 @@ watch([activeRequestId], () => {
 
 onUnmounted(() => {
   if (pollInterval.value) clearInterval(pollInterval.value)
+  window.removeEventListener('resize', updateScreenSize)
 })
 
 const copyToClipboard = (text: string) => {
@@ -571,10 +579,19 @@ const availableTools = computed(() => {
       </transition>
 
       <!-- Sidebar -->
-      <aside
-        class="absolute inset-y-0 left-0 w-80 lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900"
-        :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+      <transition
+        enter-active-class="transition-transform duration-300 ease-in-out"
+        enter-from-class="-translate-x-full"
+        enter-to-class="translate-x-0"
+        leave-active-class="transition-transform duration-300 ease-in-out"
+        leave-from-class="translate-x-0"
+        leave-to-class="-translate-x-full"
       >
+        <aside
+          v-if="isSidebarOpen || isLargeScreen"
+          class="absolute inset-y-0 left-0 w-80 lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900"
+          :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+        >
         <div class="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-gray-900 sticky top-0 z-10">
           <div class="flex items-center gap-3">
             <div
@@ -717,6 +734,7 @@ const availableTools = computed(() => {
           </div>
         </div>
       </aside>
+      </transition>
 
       <!-- Main Content -->
       <main class="flex-1 flex flex-col min-w-0 bg-white dark:bg-gray-950 h-full relative">
