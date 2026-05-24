@@ -113,6 +113,13 @@ export const updateDraft = (id: string, draft: PendingRequest['draft']) => {
   request.lastActive = Date.now()
 }
 
+export const removeRequest = (id: string) => {
+  const request = pendingRequests.get(id)
+  if (!request) return
+  pendingRequests.delete(id)
+  console.log(`[RequestManager] Manually removed request: ${id}`)
+}
+
 export const pushToRequest = (id: string, chunk: Omit<RequestChunk, 'isFinal'>): Promise<void> => {
   const request = pendingRequests.get(id)
   if (!request) throw new Error(`Request ${id} not found`)
@@ -156,7 +163,12 @@ export const pushToRequest = (id: string, chunk: Omit<RequestChunk, 'isFinal'>):
   }
 
   const promise = request.queue.then(async () => {
-    await request.onData({ ...chunk, isFinal: false })
+    try {
+      await request.onData({ ...chunk, isFinal: false })
+    } catch (error) {
+      console.error(`[RequestManager] Error in onData for request ${id}:`, error)
+      // We don't delete on partial error, but we log it
+    }
   })
   request.queue = promise
   console.log(`[RequestManager] Queued data for request: ${id}`)
@@ -202,9 +214,14 @@ export const finishRequest = (id: string, chunk?: Omit<RequestChunk, 'isFinal'>)
   }
 
   const promise = request.queue.then(async () => {
-    await request.onData({ ...chunk, isFinal: true })
-    pendingRequests.delete(id)
-    console.log(`[RequestManager] Finished and deleted request: ${id}`)
+    try {
+      await request.onData({ ...chunk, isFinal: true })
+    } catch (error) {
+      console.error(`[RequestManager] Error finishing request ${id}:`, error)
+    } finally {
+      pendingRequests.delete(id)
+      console.log(`[RequestManager] Finished and deleted request: ${id}`)
+    }
   })
   request.queue = promise
   return promise

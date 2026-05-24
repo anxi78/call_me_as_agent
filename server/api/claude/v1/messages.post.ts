@@ -1,5 +1,5 @@
 import { getSettings } from '../../../utils/settingsManager'
-import { addRequest } from '../../../utils/requestManager'
+import { addRequest, removeRequest } from '../../../utils/requestManager'
 import { estimateTokens, extractContextText } from '../../../utils/tokenUtils'
 
 export type ClaudeMessagesResponse = {
@@ -168,9 +168,9 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      event.node.req.on('close', () => {
+      event.node.res.on('close', () => {
         clearInterval(keepAliveTimer)
-        // DO NOT delete request from manager on disconnect to support retries
+        removeRequest(requestId)
         resolve(undefined)
       })
     })
@@ -234,8 +234,9 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      event.node.req.on('close', () => {
+      event.node.res.on('close', () => {
         clearInterval(keepAliveTimer)
+        removeRequest(requestId)
         resolve(undefined)
       })
     })
