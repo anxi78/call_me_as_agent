@@ -1,3 +1,6 @@
+import { verifySync } from 'otplib'
+import { createSession, verifySession } from '../../utils/sessionManager'
+
 interface RateLimitData {
   count: number
   blockedUntil: number | null
@@ -5,80 +8,96 @@ interface RateLimitData {
 
 const failedAttempts = new Map<string, RateLimitData>()
 
-// Configuration for brute-force protection
 const MAX_ATTEMPTS = 5
-const BLOCK_DURATION_MS = 15 * 60 * 1000 // 15 minutes
+const BLOCK_DURATION_MS = 15 * 60 * 1000
+
+export type LoginResponse = {
+  success: boolean
+}
 
 export default defineEventHandler(async (event) => {
-  const { password } = await readBody(event)
+  const body = await readBody(event)
+  const { password, otpCode, _isSetupVerification, _tempSecret } = body
   const config = useRuntimeConfig()
+  const settings = getSettings()
 
-  // Get client IP for rate limiting tracking (supports reverse proxy)
-  const forwardedHeader = getHeader(event, 'x-forwarded-for')
-  let ip = 'unknown'
-
-  if (typeof forwardedHeader === 'string' && forwardedHeader.length > 0) {
-    const firstIp = forwardedHeader.split(',')[0]
-    if (firstIp) {
-      ip = firstIp.trim()
+  let ip: string
+  if (settings.useHeaderForIp && settings.ipHeaderName) {
+    const headerName = settings.ipHeaderName.toLowerCase()
+    const forwardedHeader = getHeader(event, headerName)
+    if (typeof forwardedHeader === 'string' && forwardedHeader.length > 0) {
+      ip = forwardedHeader.split(',')[0]?.trim() || 'unknown'
+    } else {
+      ip = getRequestIP(event) || 'unknown'
     }
   } else {
     ip = getRequestIP(event) || 'unknown'
   }
 
-  // Check if IP is currently blocked
   const limitData = failedAttempts.get(ip)
-  if (limitData && limitData.blockedUntil) {
-    if (Date.now() < limitData.blockedUntil) {
-      const remainingMinutes = Math.ceil((limitData.blockedUntil - Date.now()) / 60000)
-      throw createError({
-        statusCode: 429,
-        statusMessage: `Too many failed attempts. Try again in ${remainingMinutes} minutes.`
-      })
-    } else {
-      // Unblock if time has passed
-      failedAttempts.delete(ip)
-    }
-  }
-
-  if (!config.adminPassword) {
-    return { success: true }
-  }
-
-  if (password === config.adminPassword) {
-    // Successful login, clear failed attempts
-    failedAttempts.delete(ip)
-
-    setCookie(event, 'auth_token', password, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 7 // 1 week
-    })
-    return { success: true }
-  }
-
-  // Failed attempt logic
-  const currentAttempts = failedAttempts.get(ip)?.count || 0
-  const newCount = currentAttempts + 1
-
-  if (newCount >= MAX_ATTEMPTS) {
-    failedAttempts.set(ip, {
-      count: newCount,
-      blockedUntil: Date.now() + BLOCK_DURATION_MS
-    })
+  if (limitData?.blockedUntil && Date.now() < limitData.blockedUntil) {
+    const remainingMinutes = Math.ceil((limitData.blockedUntil - Date.now()) / 60000)
     throw createError({
       statusCode: 429,
-      statusMessage: `Too many failed attempts. Try again in 15 minutes.`
-    })
-  } else {
-    failedAttempts.set(ip, {
-      count: newCount,
-      blockedUntil: null
+      statusMessage: `Too many failed attempts. Try again in ${remainingMinutes} minutes.`
     })
   }
 
-  throw createError({
-    statusCode: 401,
-    statusMessage: 'Invalid password'
+  const isPasswordRequired = !!(settings.enablePasswordAuth && config.adminPassword)
+  const isOtpRequired = settings.enableOtpAuth
+  let isVerified = true
+
+  // 1. Password Verification
+  if (isPasswordRequired) {
+    let matches = password === config.adminPassword
+
+    // Setup verification bypass: must be already authenticated
+    if (!matches && _isSetupVerification) {
+      const sessionId = getCookie(event, 'auth_session')
+      if (verifySession(sessionId)) {
+        matches = true
+      }
+    }
+
+    isVerified = isVerified && matches
+  }
+
+  // 2. OTP Verification
+  if (isOtpRequired || _isSetupVerification) {
+    const secret = _isSetupVerification ? _tempSecret : settings.otpSecret
+
+    const isValid = otpCode && verifySync({
+      token: otpCode,
+      secret: secret || '',
+      strategy: 'totp'
+    }).valid
+
+    isVerified = isVerified && isValid
+  }
+
+  if (!isVerified) {
+    return handleFailure(ip, 'Invalid OTP code or password')
+  }
+
+  // 3. Success
+  failedAttempts.delete(ip)
+  const sessionId = createSession()
+  setCookie(event, 'auth_session', sessionId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 60 * 60 * 24 * 7
   })
+
+  return { success: true } as LoginResponse
 })
+
+function handleFailure(ip: string, message: string) {
+  const current = failedAttempts.get(ip)?.count || 0
+  const next = current + 1
+  failedAttempts.set(ip, {
+    count: next,
+    blockedUntil: next >= MAX_ATTEMPTS ? Date.now() + BLOCK_DURATION_MS : null
+  })
+  throw createError({ statusCode: 401, statusMessage: message })
+}

@@ -1,5 +1,26 @@
-import { getSettings } from '../utils/settingsManager'
+import { getSettings, type AppSettings } from '../utils/settingsManager'
 import { getStats } from '../utils/statsManager'
+
+export type PublicSettingsResponse = Pick<AppSettings,
+  | 'siteTitle'
+  | 'siteSubtitle'
+  | 'siteLogo'
+  | 'publicBaseUrl'
+  | 'primaryColor'
+  | 'language'
+  | 'streamSpeed'
+  | 'keepAliveInterval'
+  | 'pendingRequestsLabel'
+  | 'showPendingCountPublic'
+  | 'showApiKeyPublic'
+  | 'enableApiKeyAuth'
+  | 'showTokensPublic'
+  | 'tokensLabel'
+  | 'toastTimeout'
+> & {
+  tokensInputToday: number
+  tokensOutputToday: number
+}
 
 export default defineEventHandler((_event) => {
   const settings = getSettings()
@@ -20,8 +41,9 @@ export default defineEventHandler((_event) => {
     enableApiKeyAuth: settings.enableApiKeyAuth,
     showTokensPublic: settings.showTokensPublic,
     tokensLabel: settings.tokensLabel,
+    toastTimeout: settings.toastTimeout,
     tokensInputToday: stats.tokensInputToday,
     tokensOutputToday: stats.tokensOutputToday
     // Do NOT return the actual apiKey here
-  }
+  } as PublicSettingsResponse
 })

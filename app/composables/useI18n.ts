@@ -20,6 +20,9 @@ const translations = {
     response_failed: '回复发送失败',
     copied: '已复制到剪贴板',
     upload: '上传图片',
+    sending: '发送中...',
+    endpoints: '接口端点',
+    manual_badge: '手动',
 
     // Index Page
     pending_requests: '待处理请求',
@@ -92,7 +95,31 @@ const translations = {
     tokens_label: 'Token 标签名称',
     tokens_label_desc: '自定义显示 Token 统计时的前缀文字。',
     toast_timeout: '提示框停留时间 (ms)',
-    toast_timeout_desc: '操作成功/失败时的提示框在屏幕上的停留时间。'
+    toast_timeout_desc: '操作成功/失败时的提示框在屏幕上的停留时间。',
+    max_logo_size_hint: '最大 2MB。建议使用正方形图片。',
+    github_repo: 'GitHub 仓库',
+    password_auth: '密码认证',
+    enable_password_desc: '使用环境变量中设置的管理员密码进行登录。',
+    otp_auth: 'OTP 认证 (2FA)',
+    enable_otp: '启用 OTP 认证',
+    enable_otp_desc: '使用 Authenticator 应用 (如 2FAS, Google Authenticator) 进行二次验证。',
+    otp_code: 'OTP 验证码',
+    otp_setup_title: '设置 OTP 认证',
+    otp_setup_step1: '1. 在您的手机上打开 2FAS 或其他验证器应用。',
+    otp_setup_step2: '2. 扫描下方的二维码，或手动输入密钥。',
+    otp_setup_step3: '3. 输入应用中显示的 6 位验证码进行验证。',
+    otp_secret_label: '当前密钥',
+    verify_and_enable: '验证并启用',
+    invalid_otp: '验证码无效',
+    otp_enabled_success: 'OTP 认证已启用',
+    otp_disabled_success: 'OTP 认证已禁用',
+    disable: '停用',
+    use_header_for_ip: '使用 Header 识别 IP',
+    use_header_for_ip_desc: '从特定的 HTTP 请求头中获取客户端 IP（在使用 Nginx、Cloudflare 等反向代理时很有用）。',
+    ip_header_name: 'IP Header 名称',
+    ip_header_name_desc: '包含客户端 IP 的 HTTP Header 名称（如：x-forwarded-for, cf-connecting-ip）。',
+    shutdown_message: '服务关闭通知内容',
+    shutdown_message_desc: '当服务器关闭时，发送给所有连接中客户端的终止消息内容。'
   },
   en: {
     // General
@@ -113,6 +140,9 @@ const translations = {
     response_failed: 'Failed to submit response',
     copied: 'Copied to clipboard',
     upload: 'Upload Image',
+    sending: 'Sending...',
+    endpoints: 'Endpoints',
+    manual_badge: 'MANUAL',
 
     // Index Page
     pending_requests: 'Pending Requests',
@@ -185,17 +215,41 @@ const translations = {
     tokens_label: 'Tokens Label',
     tokens_label_desc: 'Custom text prefix for token statistics.',
     toast_timeout: 'Toast Timeout (ms)',
-    toast_timeout_desc: 'Duration for success/error notifications to remain on screen.'
+    toast_timeout_desc: 'Duration for success/error notifications to remain on screen.',
+    max_logo_size_hint: 'Max size: 2MB. Recommended square aspect ratio.',
+    github_repo: 'GitHub Repository',
+    password_auth: 'Password Authentication',
+    enable_password_desc: 'Use the admin password set in environment variables for login.',
+    otp_auth: 'OTP Authentication (2FA)',
+    enable_otp: 'Enable OTP Auth',
+    enable_otp_desc: 'Use an Authenticator app (like 2FAS, Google Authenticator) for two-factor authentication.',
+    otp_code: 'OTP Code',
+    otp_setup_title: 'Setup OTP Authentication',
+    otp_setup_step1: '1. Open 2FAS or another authenticator app on your phone.',
+    otp_setup_step2: '2. Scan the QR code below or enter the secret manually.',
+    otp_setup_step3: '3. Enter the 6-digit code from the app to verify.',
+    otp_secret_label: 'Current Secret',
+    verify_and_enable: 'Verify and Enable',
+    invalid_otp: 'Invalid OTP code',
+    otp_enabled_success: 'OTP Auth enabled successfully',
+    otp_disabled_success: 'OTP Auth disabled successfully',
+    disable: 'Disable',
+    use_header_for_ip: 'Use Header for IP',
+    use_header_for_ip_desc: 'Determine client IP from a specific HTTP header (useful behind reverse proxies like Nginx/Cloudflare).',
+    ip_header_name: 'IP Header Name',
+    ip_header_name_desc: 'The HTTP header containing the client IP (e.g., x-forwarded-for, cf-connecting-ip).',
+    shutdown_message: 'Shutdown Notification Message',
+    shutdown_message_desc: 'The message sent to all connected clients when the server is closing.'
   }
 }
 
 export const useI18n = () => {
-  const { data: settings } = useFetch<any>('/api/settings')
+  const { data: settings } = useFetch<Record<string, string | number | boolean>>('/api/settings')
 
   const t = (key: keyof typeof translations.en) => {
     const lang = settings.value?.language || 'zh'
     const bundle = translations[lang as 'zh' | 'en'] || translations.en
-    return (bundle as any)[key] || key
+    return (bundle as Record<string, string>)[key] || key
   }
 
   return { t, lang: computed(() => settings.value?.language || 'zh') }

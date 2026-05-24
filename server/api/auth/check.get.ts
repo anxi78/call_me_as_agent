@@ -1,13 +1,31 @@
+import { verifySession } from '../../utils/sessionManager'
+
+export type AuthCheckResponse = {
+  authenticated: boolean
+  authRequired: boolean
+  otpEnabled: boolean
+  passwordRequired: boolean
+}
+
 export default defineEventHandler((event) => {
   const config = useRuntimeConfig()
-  if (!config.adminPassword) {
-    return { authenticated: true, authRequired: false }
+  const settings = getSettings()
+
+  const otpEnabled = settings.enableOtpAuth
+  const passwordRequired = !!(settings.enablePasswordAuth && config.adminPassword)
+  const authRequired = passwordRequired || otpEnabled
+
+  if (!authRequired) {
+    return { authenticated: true, authRequired: false, otpEnabled: false, passwordRequired: false } as AuthCheckResponse
   }
 
-  const token = getCookie(event, 'auth_token')
-  if (token === config.adminPassword) {
-    return { authenticated: true, authRequired: true }
-  }
+  const sessionId = getCookie(event, 'auth_session')
+  const isAuthenticated = verifySession(sessionId)
 
-  return { authenticated: false, authRequired: true }
+  return {
+    authenticated: isAuthenticated,
+    authRequired: true,
+    otpEnabled,
+    passwordRequired
+  } as AuthCheckResponse
 })

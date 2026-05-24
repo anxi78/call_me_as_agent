@@ -1,21 +1,35 @@
 <script setup lang="ts">
-const { data: requests } = useFetch<any[]>('/api/internal/requests')
-const { data: settings } = useFetch<any>('/api/settings')
-const { data: authStatus } = useFetch<any>('/api/auth/check')
+const { data: requestsCountData, refresh: refreshCount } = useFetch<{ count: number }>('/api/requests-count')
+const { data: settings } = useFetch<Record<string, unknown>>('/api/settings')
+const { data: authStatus } = useFetch<Record<string, unknown>>('/api/auth/check')
 const { t } = useI18n()
 
-const pendingCount = computed(() => requests.value?.length || 0)
+let timer: ReturnType<typeof setInterval>
+onMounted(() => {
+  timer = setInterval(() => {
+    refreshCount()
+  }, 5000)
+})
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
 
-const copyToClipboard = (text: string) => {
-  navigator.clipboard.writeText(text)
-  useToast().add({ title: t('copied'), color: 'success' })
+const pendingCount = computed(() => requestsCountData.value?.count || 0)
+
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    useToast().add({ title: t('copied'), color: 'success' })
+  } catch (err) {
+    useToast().add({ title: 'Copy failed', color: 'error' })
+  }
 }
 
 const statusItems = computed(() => {
-  const items = []
+  const items: { label: string, value: string | number, icon: string, color: string }[] = []
   if (settings.value?.showPendingCountPublic) {
     items.push({
-      label: settings.value?.pendingRequestsLabel || t('pending_requests'),
+      label: (settings.value?.pendingRequestsLabel as string) || t('pending_requests'),
       value: pendingCount.value,
       icon: 'i-lucide-message-square',
       color: 'primary'
@@ -35,14 +49,14 @@ const statusItems = computed(() => {
   })
   if (settings.value?.showTokensPublic) {
     items.push({
-      label: `${settings.value?.tokensLabel || 'Tokens'} (In)`,
-      value: (settings.value?.tokensInputToday || 0).toLocaleString(),
+      label: `${(settings.value?.tokensLabel as string) || 'Tokens'} (In)`,
+      value: (Number(settings.value?.tokensInputToday) || 0).toLocaleString(),
       icon: 'i-lucide-arrow-right-to-line',
       color: 'indigo'
     })
     items.push({
-      label: `${settings.value?.tokensLabel || 'Tokens'} (Out)`,
-      value: (settings.value?.tokensOutputToday || 0).toLocaleString(),
+      label: `${(settings.value?.tokensLabel as string) || 'Tokens'} (Out)`,
+      value: (Number(settings.value?.tokensOutputToday) || 0).toLocaleString(),
       icon: 'i-lucide-arrow-up-circle',
       color: 'violet'
     })
@@ -50,13 +64,16 @@ const statusItems = computed(() => {
   return items
 })
 
-const baseUrl = computed(() => settings.value?.publicBaseUrl || 'http://localhost:3000')
-const siteTitle = computed(() => settings.value?.siteTitle || 'Call Me As Agent')
-const siteSubtitle = computed(() => settings.value?.siteSubtitle || 'A Human-in-the-loop LLM Proxy Service')
+const baseUrl = computed(() => (settings.value?.publicBaseUrl as string) || 'http://localhost:3000')
+const siteTitle = computed(() => (settings.value?.siteTitle as string) || 'Call Me As Agent')
+const siteSubtitle = computed(() => (settings.value?.siteSubtitle as string) || 'A Human-in-the-loop LLM Proxy Service')
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-950 p-6 md:p-10 transition-colors">
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-950 p-6 md:p-10 transition-colors duration-300">
+    <div class="absolute top-4 right-4 md:top-6 md:right-6">
+      <UColorModeButton size="sm" />
+    </div>
     <UContainer>
       <!-- Hero / Logo -->
       <header class="mb-10 text-center animate-in fade-in duration-500">
@@ -66,7 +83,7 @@ const siteSubtitle = computed(() => settings.value?.siteSubtitle || 'A Human-in-
             class="w-20 h-20 rounded-2xl overflow-hidden shadow-lg border border-white dark:border-gray-800"
           >
             <img
-              :src="settings.siteLogo"
+              :src="(settings?.siteLogo as string)"
               class="w-full h-full object-cover"
               :alt="siteTitle"
             >
@@ -223,6 +240,16 @@ const siteSubtitle = computed(() => settings.value?.siteSubtitle || 'A Human-in-
             icon="i-simple-icons-github"
           >
             GitHub
+          </UButton>
+          <UButton
+            to="https://t.me/call_me_as_agent"
+            target="_blank"
+            variant="link"
+            color="neutral"
+            size="xs"
+            icon="i-simple-icons-telegram"
+          >
+            @call_me_as_agent
           </UButton>
         </div>
         <div>v1.0.0</div>

@@ -1,0 +1,35 @@
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          # Version will be automatically detected from package.json
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run Normal Functionality Tests
+        run: pnpm tsx tests/api_check.ts
+        env:
+          ADMIN_PASSWORD: test-password
+          SKIP_AUTH: 'true'
+
+      - name: Run Disconnection Cleanup Tests
+        run: pnpm tsx tests/disconnect_check.ts
+        env:
+          ADMIN_PASSWORD: test-password
+          SKIP_AUTH: 'true'

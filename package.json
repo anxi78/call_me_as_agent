@@ -8,21 +8,24 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck",
+    "test": "tsx tests/api_check.ts && tsx tests/disconnect_check.ts"
   },
   "dependencies": {
-    "@ant-design-vue/nuxt": "1.4.6",
     "@iconify-json/lucide": "^1.2.106",
     "@iconify-json/simple-icons": "^1.2.81",
     "@nuxt/ui": "^4.7.1",
-    "ant-design-vue": "^4.2.6",
     "nuxt": "^4.4.5",
+    "otplib": "^13.4.0",
+    "qrcode": "^1.5.4",
     "tailwindcss": "^4.3.0"
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",
     "@types/node": "^25.8.0",
+    "@types/qrcode": "^1.5.6",
     "eslint": "^10.3.0",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vue-tsc": "^3.2.8"
   },

@@ -5,6 +5,9 @@ export interface AppSettings {
   // Auth
   enableApiKeyAuth: boolean
   apiKey: string
+  enablePasswordAuth: boolean
+  enableOtpAuth: boolean
+  otpSecret: string
   // UI Customization
   siteTitle: string
   siteSubtitle: string
@@ -21,11 +24,17 @@ export interface AppSettings {
   showTokensPublic: boolean
   tokensLabel: string
   toastTimeout: number
+  useHeaderForIp: boolean
+  ipHeaderName: string
+  shutdownMessage: string
 }
 
 const defaultSettings: AppSettings = {
   enableApiKeyAuth: false,
   apiKey: 'sk-human-agent',
+  enablePasswordAuth: true,
+  enableOtpAuth: false,
+  otpSecret: '',
   siteTitle: 'Call Me As Agent',
   siteSubtitle: 'A Human-in-the-loop LLM Proxy Service',
   siteLogo: '',
@@ -34,12 +43,15 @@ const defaultSettings: AppSettings = {
   language: 'zh',
   pendingRequestsLabel: '',
   streamSpeed: 30,
-  keepAliveInterval: 15,
+  keepAliveInterval: 10,
   showPendingCountPublic: true,
   showApiKeyPublic: true,
   showTokensPublic: true,
   tokensLabel: '',
-  toastTimeout: 3000
+  toastTimeout: 3000,
+  useHeaderForIp: true,
+  ipHeaderName: 'x-forwarded-for',
+  shutdownMessage: '\n\n[Server Shutdown] The proxy server is closing. Please retry your request if needed.'
 }
 
 const settingsPath = path.resolve(process.cwd(), '.data', 'settings.json')

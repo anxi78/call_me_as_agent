@@ -1,9 +1,13 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@nuxt/ui', '@ant-design-vue/nuxt'],
+  modules: ['@nuxt/eslint', '@nuxt/ui'],
 
   devtools: {
     enabled: true
+  },
+
+  colorMode: {
+    disableTransition: false
   },
 
   css: ['~/assets/css/main.css'],

@@ -2,31 +2,93 @@
 interface PendingRequest {
   id: string
   type: 'openai' | 'claude' | 'openai-responses'
-  payload: any
+  payload: Record<string, unknown>
   timestamp: number
+  draft?: {
+    response: string
+    toolCalls: Record<string, unknown>[]
+    simulateStream: boolean
+  }
+}
+
+interface ToolCallItem {
+  id: string
+  name: string
+  description: string
+  arguments: Record<string, unknown>
+  parameters: Record<string, any>
 }
 
 // 1. State declarations first
 const { data: requests, refresh } = useFetch<PendingRequest[]>('/api/internal/requests')
-const { data: settings } = useFetch<any>('/api/settings')
+const { data: settings } = useFetch<Record<string, unknown>>('/api/settings')
 const activeRequestId = ref<string | null>(null)
 const isAuthenticated = ref(true)
+const isOtpEnabled = ref(false)
+const isPasswordRequired = ref(false)
 const loginPassword = ref('')
+const loginOtpCode = ref('')
 const isLoggingIn = ref(false)
 const isSidebarOpen = ref(false) // NEW: Mobile sidebar state
 const responses = ref<Record<string, string>>({})
-const structuredToolCalls = ref<Record<string, any[]>>({})
+const structuredToolCalls = ref<Record<string, ToolCallItem[]>>({})
 const simulateStream = ref<Record<string, boolean>>({})
-const sentHistory = ref<Record<string, any[]>>({})
+const sentHistory = ref<Record<string, Record<string, unknown>[]>>({})
 const submitting = ref<Record<string, boolean>>({})
 const finishing = ref<Record<string, boolean>>({})
 const { t } = useI18n()
 const toast = useToast()
 
+// Multi-device sync: Sync drafts
+const syncDraft = async (id: string) => {
+  try {
+    await $fetch('/api/internal/draft', {
+      method: 'POST',
+      body: {
+        id,
+        draft: {
+          response: responses.value[id] || '',
+          toolCalls: structuredToolCalls.value[id] || [],
+          simulateStream: simulateStream.value[id] !== false
+        }
+      }
+    })
+  } catch (e) {
+    console.error('Failed to sync draft:', e)
+  }
+}
+
+// Watch for changes and sync (debounced)
+const draftTimers: Record<string, ReturnType<typeof setTimeout>> = {}
+const queueDraftSync = (id: string) => {
+  if (draftTimers[id]) clearTimeout(draftTimers[id])
+  draftTimers[id] = setTimeout(() => syncDraft(id), 1000)
+}
+
+watch(responses, (newVal, oldVal) => {
+  Object.keys(newVal).forEach((id) => {
+    if (newVal[id] !== oldVal[id]) queueDraftSync(id)
+  })
+}, { deep: true })
+
+watch(structuredToolCalls, (newVal, oldVal) => {
+  Object.keys(newVal).forEach((id) => {
+    if (JSON.stringify(newVal[id]) !== JSON.stringify(oldVal[id])) queueDraftSync(id)
+  })
+}, { deep: true })
+
+watch(simulateStream, (newVal, oldVal) => {
+  Object.keys(newVal).forEach((id) => {
+    if (newVal[id] !== oldVal[id]) queueDraftSync(id)
+  })
+}, { deep: true })
+
 // 2. Auth logic
 const checkAuth = async () => {
-  const res: any = await $fetch('/api/auth/check')
-  isAuthenticated.value = res.authenticated
+  const res = await $fetch<Record<string, unknown>>('/api/auth/check')
+  isAuthenticated.value = res.authenticated as boolean
+  isOtpEnabled.value = res.otpEnabled as boolean
+  isPasswordRequired.value = res.passwordRequired as boolean
 }
 
 const login = async () => {
@@ -34,12 +96,16 @@ const login = async () => {
   try {
     await $fetch('/api/auth/login', {
       method: 'POST',
-      body: { password: loginPassword.value }
+      body: {
+        password: loginPassword.value,
+        otpCode: loginOtpCode.value
+      }
     })
     isAuthenticated.value = true
     await refresh()
-  } catch (e: any) {
-    toast.add({ title: e.data?.statusMessage || t('invalid_password'), color: 'error' })
+  } catch (e: unknown) {
+    const errorData = (e as { data?: { statusMessage?: string } })?.data
+    toast.add({ title: errorData?.statusMessage || t('invalid_password'), color: 'error' })
   } finally {
     isLoggingIn.value = false
   }
@@ -51,7 +117,6 @@ const logout = async () => {
   loginPassword.value = ''
 }
 
-// 3. Request management logic
 const activeRequest = computed(() => {
   if (!requests.value) return null
   return requests.value.find(r => r.id === activeRequestId.value) || null
@@ -61,7 +126,15 @@ watch(requests, (newRequests) => {
   if (newRequests?.length) {
     newRequests.forEach((r) => {
       if (simulateStream.value[r.id] === undefined) {
-        simulateStream.value[r.id] = true
+        simulateStream.value[r.id] = r.draft?.simulateStream !== undefined ? r.draft.simulateStream : true
+      }
+      // Populate local state from server draft if local is empty
+      if (r.draft) {
+        if (!responses.value[r.id]) responses.value[r.id] = r.draft.response
+        const tc = structuredToolCalls.value[r.id]
+        if (!tc || tc.length === 0) {
+          structuredToolCalls.value[r.id] = r.draft.toolCalls as unknown as ToolCallItem[]
+        }
       }
     })
     if (!activeRequestId.value) {
@@ -72,7 +145,7 @@ watch(requests, (newRequests) => {
   }
 }, { immediate: true })
 
-const pollInterval = ref<any>(null)
+const pollInterval = ref<ReturnType<typeof setInterval> | null>(null)
 const chatContainer = ref<HTMLElement | null>(null)
 
 const scrollToBottom = async () => {
@@ -110,10 +183,10 @@ onUnmounted(() => {
 
 const copyToClipboard = (text: string) => {
   navigator.clipboard.writeText(text)
-  toast.add({ title: t('copied'), color: 'success' })
+  toast.add({ title: t('copied'), color: 'success', duration: settings.value?.toastTimeout ? Number(settings.value.toastTimeout) : 3000 })
 }
 
-const addToolCall = (requestId: string, tool?: any) => {
+const addToolCall = (requestId: string, tool?: Record<string, unknown>) => {
   if (!structuredToolCalls.value[requestId]) {
     structuredToolCalls.value[requestId] = []
   }
@@ -122,13 +195,13 @@ const addToolCall = (requestId: string, tool?: any) => {
     simulateStream.value[requestId] = true
   }
 
-  const toolFn = tool?.function || tool
-  const parameters = toolFn?.parameters?.properties || toolFn?.input_schema?.properties || {}
-  const args: Record<string, any> = {}
+  const toolFn = (tool?.function || tool) as Record<string, unknown> | undefined
+  const parameters = (toolFn?.parameters as Record<string, unknown>)?.properties as Record<string, any> || (toolFn?.input_schema as Record<string, unknown>)?.properties as Record<string, any> || {}
+  const args: Record<string, unknown> = {}
 
   Object.keys(parameters).forEach((key) => {
     const prop = parameters[key]
-    const toolName = toolFn?.name || ''
+    const toolName = (toolFn?.name as string) || ''
     if (key === 'questions' && toolName === 'ask_user') {
       args[key] = [{
         question: 'Your question here?',
@@ -146,8 +219,8 @@ const addToolCall = (requestId: string, tool?: any) => {
 
   structuredToolCalls.value[requestId].push({
     id: 'call_' + Math.random().toString(36).substring(2, 9),
-    name: toolFn?.name || 'custom_tool',
-    description: toolFn?.description || '',
+    name: (toolFn?.name as string) || 'custom_tool',
+    description: (toolFn?.description as string) || '',
     arguments: args,
     parameters: parameters
   })
@@ -157,7 +230,7 @@ const removeToolCall = (requestId: string, index: number) => {
   structuredToolCalls.value[requestId]?.splice(index, 1)
 }
 
-const promptNewParameter = (tc: any) => {
+const promptNewParameter = (tc: ToolCallItem) => {
   const k = window.prompt(t('new_param_name'))
   if (k) {
     tc.arguments[k] = ''
@@ -166,7 +239,7 @@ const promptNewParameter = (tc: any) => {
 
 const parseToolCalls = (id: string) => {
   return (structuredToolCalls.value[id] || []).map((tc) => {
-    const parsedArgs: Record<string, any> = {}
+    const parsedArgs: Record<string, unknown> = {}
     for (const [key, val] of Object.entries(tc.arguments)) {
       const prop = tc.parameters?.[key]
       if (typeof val === 'string') {
@@ -190,6 +263,7 @@ const sendPart = async (id: string) => {
   const toolCalls = parseToolCalls(id)
   let content = responses.value[id] || ''
   const isStreaming = simulateStream.value[id] !== false
+  const manualId = Math.random().toString(36).substring(2, 15)
 
   // Clear local input immediately to allow next typing
   responses.value[id] = ''
@@ -208,7 +282,8 @@ const sendPart = async (id: string) => {
         id,
         response: content,
         toolCalls: toolCalls.length > 0 ? toolCalls : null,
-        simulateStream: isStreaming
+        simulateStream: isStreaming,
+        _manualId: manualId
       }
     })
 
@@ -217,9 +292,11 @@ const sendPart = async (id: string) => {
       role: 'assistant',
       content: content,
       tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-      _is_manual: true
+      _is_manual: true,
+      _manualId: manualId
     })
 
+    await refresh()
     toast.add({ title: t('response_sent'), color: 'primary', duration: settings.value?.toastTimeout ? Number(settings.value.toastTimeout) : 3000 })
     scrollToBottom()
   } catch (error) {
@@ -234,6 +311,7 @@ const finish = async (id: string) => {
   const toolCalls = parseToolCalls(id)
   const content = responses.value[id] || ''
   const isStreaming = simulateStream.value[id] !== false
+  const manualId = Math.random().toString(36).substring(2, 15)
 
   responses.value[id] = ''
   structuredToolCalls.value[id] = []
@@ -246,7 +324,8 @@ const finish = async (id: string) => {
         id,
         response: content,
         toolCalls: toolCalls.length > 0 ? toolCalls : null,
-        simulateStream: isStreaming
+        simulateStream: isStreaming,
+        _manualId: manualId
       }
     })
 
@@ -265,10 +344,10 @@ const finish = async (id: string) => {
   }
 }
 
-const getMessages = (payload: any, reqId: string) => {
-  let messages: any[] = []
+const getMessages = (payload: Record<string, any>, reqId: string) => {
+  let messages: Record<string, any>[] = []
 
-  const extractText = (content: any): string => {
+  const extractText = (content: unknown): string => {
     if (typeof content === 'string') return content
     if (Array.isArray(content)) {
       return content.map((c) => {
@@ -276,31 +355,27 @@ const getMessages = (payload: any, reqId: string) => {
         if (c.type === 'text') return c.text
         if (c.type === 'tool_use') return `[Tool Use: ${c.name}]`
         if (c.type === 'tool_result') return extractText(c.content)
+        if (['image_url', 'image', 'input_image'].includes(c.type)) return ''
         return c.text || c.output || c.arguments || JSON.stringify(c)
-      }).join('\n')
+      }).filter(Boolean).join('\n')
     }
-    if (content?.type === 'text') return content.text
-    if (content?.type === 'tool_result') return extractText(content.content)
-    return content?.text || content?.output || content?.arguments || JSON.stringify(content)
+    const cObj = content as Record<string, any>
+    if (cObj?.type === 'text') return cObj.text
+    if (cObj?.type === 'tool_result') return extractText(cObj.content)
+    if (['image_url', 'image', 'input_image'].includes(cObj?.type)) return ''
+    return cObj?.text || cObj?.output || cObj?.arguments || JSON.stringify(cObj)
   }
 
-  if (payload.messages) {
-    messages = [...payload.messages]
-    if (payload.system) {
-      if (typeof payload.system === 'string') {
-        messages.unshift({ role: 'system', content: payload.system })
-      } else if (Array.isArray(payload.system)) {
-        messages.unshift({ role: 'system', content: payload.system })
-      }
-    }
-  } else if (payload.input || payload.instructions) {
-    if (payload.instructions) {
-      messages.push({ role: 'system', content: payload.instructions })
-    }
+  // 1. Instructions & Input (Common in openai-responses)
+  if (payload.instructions) {
+    messages.push({ role: 'system', content: payload.instructions })
+  }
+
+  if (payload.input) {
     if (typeof payload.input === 'string') {
       messages.push({ role: 'user', content: payload.input })
     } else if (Array.isArray(payload.input)) {
-      payload.input.forEach((item: any) => {
+      payload.input.forEach((item: Record<string, any>) => {
         let role = item.role
         if (!role) {
           if (item.type === 'message') role = 'user'
@@ -314,27 +389,53 @@ const getMessages = (payload: any, reqId: string) => {
     }
   }
 
+  // 2. Standard messages (Chat Completions / Claude / Manual replies)
+  if (payload.messages) {
+    payload.messages.forEach((m: any) => {
+      messages.push(m)
+    })
+    if (payload.system) {
+      if (typeof payload.system === 'string') {
+        messages.unshift({ role: 'system', content: payload.system })
+      } else if (Array.isArray(payload.system)) {
+        messages.unshift({ role: 'system', content: payload.system })
+      }
+    }
+  }
+
+  // 3. Local sent history (not yet reflected in payload.messages)
   if (reqId && sentHistory.value[reqId]) {
-    messages = [...messages, ...sentHistory.value[reqId]]
+    const existingIds = new Set(messages.filter(m => m._is_manual).map(m => m._manualId))
+    sentHistory.value[reqId].forEach((sm) => {
+      if (!sm._manualId || !existingIds.has(sm._manualId)) {
+        messages.push(sm)
+      }
+    })
   }
 
   return messages.map((m) => {
     const images: string[] = []
-    const toolCalls: any[] = []
-    const toolResults: any[] = []
+    const toolCalls: Record<string, any>[] = []
+    const toolResults: Record<string, any>[] = []
     let textContent = ''
     let role = m.role
 
     if (typeof m.content === 'string') {
       textContent = m.content
     } else if (Array.isArray(m.content)) {
-      m.content.forEach((c: any) => {
+      m.content.forEach((c: Record<string, any>) => {
         if (c.type === 'text') {
           textContent += (textContent ? '\n' : '') + c.text
         } else if (c.type === 'image_url') {
-          images.push(c.image_url.url)
+          images.push(c.image_url.url || c.image_url)
         } else if (c.type === 'image') {
           images.push(`data:${c.source.media_type};base64,${c.source.data}`)
+        } else if (c.type === 'input_image') {
+          let url = typeof c.image_url === 'string' ? c.image_url : (c.image_url?.url || '')
+          if (url && !url.startsWith('http') && !url.startsWith('data:')) {
+            url = `data:image/jpeg;base64,${url}`
+          }
+          if (url) images.push(url)
         } else if (c.type === 'tool_use') {
           toolCalls.push(c)
         } else if (c.type === 'tool_result') {
@@ -355,7 +456,7 @@ const getMessages = (payload: any, reqId: string) => {
       })
     }
 
-    if (m.tool_calls) m.tool_calls.forEach((tc: any) => toolCalls.push(tc))
+    if (m.tool_calls) m.tool_calls.forEach((tc: Record<string, any>) => toolCalls.push(tc))
 
     return {
       role,
@@ -375,7 +476,7 @@ const formatTimestamp = (ts: number) => {
 
 const availableTools = computed(() => {
   if (!activeRequest.value?.payload?.tools) return []
-  return activeRequest.value.payload.tools
+  return activeRequest.value.payload.tools as Record<string, any>[]
 })
 </script>
 
@@ -394,7 +495,7 @@ const availableTools = computed(() => {
               class="w-16 h-16 rounded-2xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-800"
             >
               <img
-                :src="settings.siteLogo"
+                :src="settings.siteLogo as string"
                 class="w-full h-full object-cover"
               >
             </div>
@@ -417,12 +518,23 @@ const availableTools = computed(() => {
             {{ t('auth_desc') }}
           </p>
           <UInput
+            v-if="isPasswordRequired"
             v-model="loginPassword"
             type="password"
             placeholder="Enter Password"
             autofocus
             icon="i-lucide-key"
             class="w-full"
+            @keyup.enter="login"
+          />
+          <UInput
+            v-if="isOtpEnabled"
+            v-model="loginOtpCode"
+            type="text"
+            :placeholder="t('otp_code')"
+            icon="i-lucide-shield-check"
+            class="w-full"
+            maxlength="6"
             @keyup.enter="login"
           />
           <UButton
@@ -443,15 +555,24 @@ const availableTools = computed(() => {
       class="flex flex-1 overflow-hidden relative"
     >
       <!-- Overlay for mobile sidebar -->
-      <div
-        v-if="isSidebarOpen"
-        class="fixed inset-0 bg-black/50 z-40 lg:hidden"
-        @click="isSidebarOpen = false"
-      />
+      <transition
+        enter-active-class="transition-opacity duration-300 ease-in-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition-opacity duration-300 ease-in-out"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="isSidebarOpen"
+          class="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          @click="isSidebarOpen = false"
+        />
+      </transition>
 
       <!-- Sidebar -->
       <aside
-        class="absolute inset-y-0 left-0 w-80 lg:relative lg:translate-x-0 transition-transform duration-300 z-50 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900"
+        class="absolute inset-y-0 left-0 w-80 lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 border-r border-gray-200 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900"
         :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'"
       >
         <div class="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-white dark:bg-gray-900 sticky top-0 z-10">
@@ -461,7 +582,7 @@ const availableTools = computed(() => {
               class="w-8 h-8 rounded-lg overflow-hidden border border-gray-100 dark:border-gray-800"
             >
               <img
-                :src="settings.siteLogo"
+                :src="settings.siteLogo as string"
                 class="w-full h-full object-cover"
               >
             </div>
@@ -522,7 +643,7 @@ const availableTools = computed(() => {
                     <UIcon
                       name="i-lucide-loader-2"
                       class="animate-spin"
-                    /> Sending...
+                    /> {{ t('sending') }}
                   </span>
                   <span class="text-[10px] text-gray-400">{{ formatTimestamp(req.timestamp) }}</span>
                 </div>
@@ -545,7 +666,7 @@ const availableTools = computed(() => {
 
         <div class="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2 bg-white/50 dark:bg-gray-900/50">
           <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-            Endpoints
+            {{ t('endpoints') }}
           </div>
           <div class="flex flex-col gap-1">
             <UButton
@@ -614,7 +735,7 @@ const availableTools = computed(() => {
               class="w-6 h-6 rounded border border-gray-100 dark:border-gray-800 overflow-hidden"
             >
               <img
-                :src="settings.siteLogo"
+                :src="settings.siteLogo as string"
                 class="w-full h-full object-cover"
               >
             </div>
@@ -698,23 +819,23 @@ const availableTools = computed(() => {
                         <span
                           v-if="msg._is_manual"
                           class="ml-1 text-[8px] bg-white/20 px-1 rounded font-black tracking-tighter"
-                        >MANUAL</span>
+                        >{{ t('manual_badge') }}</span>
                       </div>
                       <div
-                        v-if="msg.content"
+                        v-if="msg.content.trim()"
                         class="whitespace-pre-wrap break-words"
                       >
                         {{ msg.content }}
                       </div>
                       <div
                         v-if="msg.images.length"
-                        class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2"
+                        class="mt-3 flex flex-col gap-2 w-fit"
                       >
                         <img
                           v-for="(img, i) in msg.images"
                           :key="i"
                           :src="img"
-                          class="rounded-lg border border-white/20 max-h-60 w-full object-cover"
+                          class="rounded-lg border border-white/20 max-h-80 max-w-full object-contain bg-black/5 block"
                         >
                       </div>
                       <div
@@ -731,9 +852,9 @@ const availableTools = computed(() => {
                               name="i-lucide-play"
                               size="10"
                             />
-                            TOOL: {{ tc.function?.name || (tc as any).name }}
+                            TOOL: {{ tc.function?.name || tc.name }}
                           </div>
-                          <pre class="text-[10px] font-mono whitespace-pre-wrap break-all">{{ tc.function?.arguments || JSON.stringify((tc as any).input || {}) }}</pre>
+                          <pre class="text-[10px] font-mono whitespace-pre-wrap break-all">{{ tc.function?.arguments || JSON.stringify(tc.input || {}) }}</pre>
                         </div>
                       </div>
                       <div
