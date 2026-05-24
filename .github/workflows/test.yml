@@ -22,10 +22,14 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Run Tests
-        run: |
-          pnpm tsx tests/api_check.ts
-          pnpm tsx tests/disconnect_check.ts
+      - name: Run Normal Functionality Tests
+        run: pnpm tsx tests/api_check.ts
+        env:
+          ADMIN_PASSWORD: test-password
+          SKIP_AUTH: 'true'
+
+      - name: Run Disconnection Cleanup Tests
+        run: pnpm tsx tests/disconnect_check.ts
         env:
           ADMIN_PASSWORD: test-password
           SKIP_AUTH: 'true'
